@@ -1,0 +1,40 @@
+# Ambientes virtuais
+.venv/
+venv/
+ENV/
+env/
+
+# Caches do Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Executáveis e Builds do PyInstaller
+build/
+dist/
+*.spec
+
+# Binários pesados locais (FFmpeg ~100MB)
+bin/
+*.exe
+
+# Arquivos de Vídeo temporários e de teste
+*.mp4
+*.mkv
+*.avi
+*.mov
+web_uploads/
+web_outputs/
+
+# Chaves de API e Segredos
+config.json
+.env
+.env.local
+
+# IDEs e Editores
+.vscode/
+.idea/
+*.swp
+*.swo

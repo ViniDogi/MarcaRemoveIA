@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MarcaRemoveIA - Removedor Inteligente de Marca d'Água de Vídeo</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .canvas-container {
+      position: relative;
+      user-select: none;
+    }
+    #drawCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      cursor: crosshair;
+    }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col font-sans">
+
+  <!-- Header -->
+  <header class="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between shadow-lg">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-cyan-400 flex items-center justify-center font-black text-xl shadow-cyan-500/20 shadow-md">
+        MR
+      </div>
+      <div>
+        <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+          MarcaRemoveIA <span class="text-xs bg-cyan-900/60 text-cyan-300 font-semibold px-2 py-0.5 rounded-full border border-cyan-700/50">Web Edition</span>
+        </h1>
+        <p class="text-xs text-gray-400">Remoção de marca d'água com IA generativa e aceleração nativa</p>
+      </div>
+    </div>
+    <div class="flex items-center space-x-4">
+      <button onclick="openConfigModal()" class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg border border-gray-700 transition flex items-center gap-1.5">
+        ⚙️ Configurar API de IA
+      </button>
+      <span class="text-xs text-emerald-400 font-medium bg-emerald-950/60 px-2.5 py-1 rounded-full border border-emerald-800/40">
+        ● Servidor Ativo
+      </span>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Coluna Esquerda: Controles -->
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 flex flex-col space-y-5 shadow-xl">
+      
+      <!-- Upload Zone -->
+      <div>
+        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">1. Selecionar Vídeo</label>
+        <div id="dropZone" onclick="document.getElementById('fileInput').click()" class="border-2 border-dashed border-gray-700 hover:border-cyan-500 rounded-xl p-5 text-center cursor-pointer bg-gray-950/50 hover:bg-cyan-950/10 transition">
+          <input type="file" id="fileInput" accept="video/*" class="hidden" onchange="handleFileUpload(this.files[0])">
+          <div class="text-3xl mb-2">📹</div>
+          <p class="text-sm font-medium text-gray-200">Arraste um vídeo aqui ou clique</p>
+          <p class="text-xs text-gray-500 mt-1">MP4, MKV, AVI, MOV ou WebM</p>
+        </div>
+      </div>
+
+      <!-- Detalhes do Vídeo -->
+      <div id="videoInfoCard" class="hidden bg-gray-950/70 border border-gray-800/80 rounded-xl p-3.5 text-xs space-y-1.5">
+        <div class="flex justify-between text-gray-400">
+          <span>Arquivo:</span> <span id="infoName" class="text-gray-200 font-semibold truncate max-w-[170px]"></span>
+        </div>
+        <div class="flex justify-between text-gray-400">
+          <span>Resolução:</span> <span id="infoRes" class="text-gray-200 font-mono"></span>
+        </div>
+        <div class="flex justify-between text-gray-400">
+          <span>Duração:</span> <span id="infoDur" class="text-gray-200"></span>
+        </div>
+        <div class="flex justify-between text-gray-400">
+          <span>Taxa de Quadros:</span> <span id="infoFps" class="text-gray-200"></span>
+        </div>
+      </div>
+
+      <!-- Detecção com IA -->
+      <div>
+        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">2. Identificar Marcas</label>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="btnAiDetect" onclick="detectWithAI()" disabled class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs py-2.5 px-3 rounded-xl transition shadow flex items-center justify-center gap-1.5">
+            ✨ Detectar com IA
+          </button>
+          <button onclick="clearBoxes()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold text-xs py-2.5 px-3 rounded-xl transition border border-gray-700 flex items-center justify-center gap-1">
+            🗑️ Limpar Seleção
+          </button>
+        </div>
+      </div>
+
+      <!-- Lista de Regiões -->
+      <div>
+        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Regiões Selecionadas (<span id="boxCount">0</span>)</label>
+        <div id="boxesList" class="max-h-32 overflow-y-auto space-y-1.5 bg-gray-950/60 border border-gray-800 rounded-xl p-2 text-xs text-gray-400">
+          <p class="text-center py-2 text-gray-600">Nenhuma região marcada.</p>
+        </div>
+      </div>
+
+      <!-- Configurações do Motor -->
+      <div>
+        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">3. Motor de Inpainting</label>
+        <select id="engineSelect" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-cyan-500">
+          <option value="ai_generative">✨ IA Generativa (Reconstrução 100% Pixels)</option>
+          <option value="gpu_nvenc">⚡ GPU NVIDIA NVENC (Ultra Rápido)</option>
+          <option value="cpu_delogo">🖥️ CPU FFmpeg (Delogo)</option>
+          <option value="opencv_telea">🎨 OpenCV Telea</option>
+          <option value="opencv_ns">🌊 OpenCV Navier-Stokes</option>
+        </select>
+      </div>
+
+      <!-- Opções Adicionais: Áudio & Upscale Full HD -->
+      <div class="space-y-2 pt-1">
+        <label class="flex items-center space-x-2 text-xs text-gray-300 cursor-pointer">
+          <input type="checkbox" id="chkKeepAudio" checked class="rounded bg-gray-950 border-gray-700 text-cyan-500 focus:ring-0">
+          <span>Preservar Áudio Original</span>
+        </label>
+        <label class="flex items-center space-x-2 text-xs text-cyan-300 font-semibold cursor-pointer">
+          <input type="checkbox" id="chkUpscale" class="rounded bg-gray-950 border-gray-700 text-cyan-500 focus:ring-0">
+          <span>✨ Upscale Full HD (1080p) com Nitidez IA</span>
+        </label>
+      </div>
+
+      <!-- Botão de Iniciar -->
+      <div class="pt-2">
+        <button id="btnProcess" onclick="startProcessing()" disabled class="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm py-3 px-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+          🚀 Iniciar Remoção com IA
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Coluna Direita: Player e Canvas Interativo -->
+    <div class="lg:col-span-2 bg-gray-900 border border-gray-800 rounded-2xl p-6 flex flex-col justify-between shadow-xl">
+      
+      <!-- Container do Vídeo e Canvas -->
+      <div class="flex-1 flex flex-col items-center justify-center min-h-[360px] bg-black/60 rounded-xl border border-gray-800/80 p-2 overflow-hidden">
+        <div id="canvasWrapper" class="canvas-container max-w-full">
+          <video id="videoPreview" controls class="max-h-[460px] max-w-full rounded-lg hidden" onloadedmetadata="initCanvas()"></video>
+          <canvas id="drawCanvas"></canvas>
+          <div id="placeholderPreview" class="text-center py-24 text-gray-600">
+            <span class="text-5xl block mb-3">🎬</span>
+            <p class="text-sm font-medium">Carregue um vídeo para visualizar os quadros</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Barra de Progresso e Notificação -->
+      <div class="mt-4 pt-4 border-t border-gray-800/80 space-y-2">
+        <div class="flex justify-between text-xs text-gray-400">
+          <span id="statusText">Aguardando vídeo...</span>
+          <span id="progressPercent" class="font-bold text-cyan-400">0%</span>
+        </div>
+        <div class="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden">
+          <div id="progressBar" class="bg-gradient-to-r from-cyan-500 to-emerald-400 h-2.5 rounded-full transition-all duration-200" style="width: 0%"></div>
+        </div>
+        <div id="downloadArea" class="hidden pt-2 flex justify-end">
+          <a id="btnDownload" href="#" download class="bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold text-xs py-2 px-4 rounded-xl shadow-md transition flex items-center gap-1.5">
+            📥 Baixar Vídeo Sem Marca d'Água
+          </a>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Modal de Configuração de API -->
+  <div id="configModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b border-gray-800 pb-3">
+        <h3 class="font-bold text-white text-base">⚙️ Configurações da API de IA</h3>
+        <button onclick="closeConfigModal()" class="text-gray-400 hover:text-white font-bold text-lg">&times;</button>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-400 mb-1">Provedor de IA:</label>
+        <select id="modalProvider" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-xs text-gray-200">
+          <option value="gemini">Google Gemini (Gratuito com Chave)</option>
+          <option value="openai">OpenAI GPT-4o Vision</option>
+          <option value="local_cv">Visão Computacional Local (Sem Chave / Offline)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-400 mb-1">Chave de API:</label>
+        <input type="password" id="modalApiKey" placeholder="Cole sua chave de API..." class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-xs text-gray-200">
+      </div>
+      <p class="text-xs text-gray-500 leading-relaxed">
+        Com a chave do Google Gemini configurada, a IA detecta automaticamente marcas d'água translúcidas e logotipos em qualquer frame do vídeo.
+      </p>
+      <div class="flex justify-end space-x-2 pt-2 border-t border-gray-800">
+        <button onclick="closeConfigModal()" class="bg-gray-800 text-gray-300 text-xs py-2 px-4 rounded-xl">Cancelar</button>
+        <button onclick="saveConfig()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-2 px-4 rounded-xl">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Script da Aplicação Web -->
+  <script>
+    let currentVideoId = null;
+    let videoMeta = null;
+    let boxes = [];
+    let isDrawing = false;
+    let startX = 0, startY = 0;
+    let taskId = null;
+    let pollInterval = null;
+
+    const video = document.getElementById("videoPreview");
+    const canvas = document.getElementById("drawCanvas");
+    const ctx = canvas.getContext("2d");
+
+    async function handleFileUpload(file) {
+      if (!file) return;
+      document.getElementById("statusText").innerText = "Enviando vídeo para o servidor...";
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const resp = await fetch("/api/upload", { method: "POST", body: formData });
+        const data = await resp.json();
+        if (data.success) {
+          currentVideoId = data.video_id;
+          videoMeta = data.metadata;
+
+          document.getElementById("infoName").innerText = file.name;
+          document.getElementById("infoRes").innerText = `${videoMeta.width}x${videoMeta.height}`;
+          document.getElementById("infoDur").innerText = `${Math.floor(videoMeta.duration)}s (${videoMeta.nb_frames} frames)`;
+          document.getElementById("infoFps").innerText = `${videoMeta.fps.toFixed(2)} fps`;
+          document.getElementById("videoInfoCard").classList.remove("hidden");
+
+          video.src = data.video_url;
+          video.classList.remove("hidden");
+          document.getElementById("placeholderPreview").classList.add("hidden");
+
+          document.getElementById("btnAiDetect").disabled = false;
+          document.getElementById("btnProcess").disabled = false;
+          document.getElementById("statusText").innerText = "Vídeo carregado. Selecione a marca d'água.";
+        }
+      } catch (err) {
+        alert("Erro ao enviar vídeo: " + err);
+      }
+    }
+
+    function initCanvas() {
+      canvas.width = video.clientWidth;
+      canvas.height = video.clientHeight;
+      redrawBoxes();
+    }
+
+    window.addEventListener("resize", () => {
+      if (!video.classList.contains("hidden")) {
+        canvas.width = video.clientWidth;
+        canvas.height = video.clientHeight;
+        redrawBoxes();
+      }
+    });
+
+    // Eventos do Mouse para desenhar
+    canvas.addEventListener("mousedown", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      startX = e.clientX - rect.left;
+      startY = e.clientY - rect.top;
+      isDrawing = true;
+    });
+
+    canvas.addEventListener("mousemove", (e) => {
+      if (!isDrawing) return;
+      const rect = canvas.getBoundingClientRect();
+      const curX = e.clientX - rect.left;
+      const curY = e.clientY - rect.top;
+
+      redrawBoxes();
+      ctx.strokeStyle = "#00e5ff";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(startX, startY, curX - startX, curY - startY);
+      ctx.setLineDash([]);
+    });
+
+    canvas.addEventListener("mouseup", (e) => {
+      if (!isDrawing) return;
+      isDrawing = false;
+      const rect = canvas.getBoundingClientRect();
+      const endX = e.clientX - rect.left;
+      const endY = e.clientY - rect.top;
+
+      const cX1 = Math.min(startX, endX);
+      const cY1 = Math.min(startY, endY);
+      const cW = Math.abs(endX - startX);
+      const cH = Math.abs(endY - startY);
+
+      if (cW > 8 && cH > 8) {
+        // Converte para coordenadas originais do vídeo
+        const scaleX = videoMeta.width / canvas.width;
+        const scaleY = videoMeta.height / canvas.height;
+
+        const newBox = {
+          id: boxes.length + 1,
+          x: Math.round(cX1 * scaleX),
+          y: Math.round(cY1 * scaleY),
+          w: Math.round(cW * scaleX),
+          h: Math.round(cH * scaleY),
+          name: `Marca #${boxes.length + 1}`
+        };
+        boxes.push(newBox);
+        updateBoxesList();
+        redrawBoxes();
+      }
+    });
+
+    function redrawBoxes() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const scaleX = canvas.width / videoMeta.width;
+      const scaleY = canvas.height / videoMeta.height;
+
+      boxes.forEach((b, i) => {
+        const bx = b.x * scaleX;
+        const by = b.y * scaleY;
+        const bw = b.w * scaleX;
+        const bh = b.h * scaleY;
+
+        ctx.strokeStyle = "#ff3366";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(bx, by, bw, bh);
+
+        ctx.fillStyle = "#ff3366";
+        ctx.font = "bold 11px sans-serif";
+        ctx.fillText(b.name || `Marca #${i+1}`, bx + 4, by - 4 > 10 ? by - 4 : by + 12);
+      });
+    }
+
+    function updateBoxesList() {
+      const container = document.getElementById("boxesList");
+      document.getElementById("boxCount").innerText = boxes.length;
+      if (boxes.length === 0) {
+        container.innerHTML = `<p class="text-center py-2 text-gray-600">Nenhuma região marcada.</p>`;
+        return;
+      }
+      container.innerHTML = "";
+      boxes.forEach((b) => {
+        const item = document.createElement("div");
+        item.className = "flex justify-between items-center bg-gray-900 px-2.5 py-1.5 rounded-lg border border-gray-800";
+        item.innerHTML = `
+          <span>${b.name} (${b.w}x${b.h})</span>
+          <button onclick="removeBox(${b.id})" class="text-red-400 hover:text-red-300 font-bold px-1">&times;</button>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function removeBox(id) {
+      boxes = boxes.filter(b => b.id !== id);
+      updateBoxesList();
+      redrawBoxes();
+    }
+
+    function clearBoxes() {
+      boxes = [];
+      updateBoxesList();
+      redrawBoxes();
+    }
+
+    async function detectWithAI() {
+      if (!currentVideoId) return;
+      document.getElementById("statusText").innerText = "🤖 IA analisando frame em busca de marcas...";
+      document.getElementById("btnAiDetect").disabled = true;
+
+      const currentTime = video.currentTime || 0;
+
+      try {
+        const resp = await fetch("/api/detect-ai", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ video_id: currentVideoId, timestamp: currentTime })
+        });
+        const data = await resp.json();
+        if (data.boxes && data.boxes.length > 0) {
+          data.boxes.forEach(b => boxes.push(b));
+          updateBoxesList();
+          redrawBoxes();
+          document.getElementById("statusText").innerText = `✅ IA identificou ${data.boxes.length} marca(s) d'água!`;
+        } else {
+          document.getElementById("statusText").innerText = "Nenhuma marca óbvia detectada. Marque manualmente.";
+        }
+      } catch (err) {
+        alert("Erro na detecção por IA: " + err);
+      } finally {
+        document.getElementById("btnAiDetect").disabled = false;
+      }
+    }
+
+    async function startProcessing() {
+      if (!currentVideoId || boxes.length === 0) {
+        alert("Marque pelo menos uma marca d'água antes de iniciar!");
+        return;
+      }
+
+      const engine = document.getElementById("engineSelect").value;
+      const keepAudio = document.getElementById("chkKeepAudio").checked;
+      const upscaleFullhd = document.getElementById("chkUpscale").checked;
+
+      document.getElementById("btnProcess").disabled = true;
+      document.getElementById("downloadArea").classList.add("hidden");
+      document.getElementById("statusText").innerText = "Iniciando processamento no servidor...";
+
+      try {
+        const resp = await fetch("/api/process", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            video_id: currentVideoId,
+            boxes: boxes,
+            engine: engine,
+            keep_audio: keepAudio,
+            upscale_fullhd: upscaleFullhd
+          })
+        });
+        const data = await resp.json();
+        if (data.task_id) {
+          taskId = data.task_id;
+          pollInterval = setInterval(checkProgress, 1000);
+        }
+      } catch (err) {
+        alert("Erro ao iniciar processamento: " + err);
+        document.getElementById("btnProcess").disabled = false;
+      }
+    }
+
+    async function checkProgress() {
+      if (!taskId) return;
+      try {
+        const resp = await fetch(`/api/progress/${taskId}`);
+        const data = await resp.json();
+
+        const pct = Math.round(data.progress * 100);
+        document.getElementById("progressBar").style.width = pct + "%";
+        document.getElementById("progressPercent").innerText = pct + "%";
+        document.getElementById("statusText").innerText = data.status || `Processando: ${pct}%`;
+
+        if (data.done) {
+          clearInterval(pollInterval);
+          document.getElementById("btnProcess").disabled = false;
+          document.getElementById("downloadArea").classList.remove("hidden");
+          document.getElementById("btnDownload").href = `/api/download/${taskId}`;
+          document.getElementById("statusText").innerText = "✅ Concluído! Clique em Baixar.";
+        } else if (data.error) {
+          clearInterval(pollInterval);
+          document.getElementById("btnProcess").disabled = false;
+          alert("Erro no processamento: " + data.error);
+        }
+      } catch (err) {
+        console.error("Erro no polling: ", err);
+      }
+    }
+
+    function openConfigModal() {
+      document.getElementById("configModal").classList.remove("hidden");
+    }
+    function closeConfigModal() {
+      document.getElementById("configModal").classList.add("hidden");
+    }
+
+    async function saveConfig() {
+      const provider = document.getElementById("modalProvider").value;
+      const apiKey = document.getElementById("modalApiKey").value;
+      await fetch("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, api_key: apiKey })
+      });
+      closeConfigModal();
+      alert("Configuração de IA salva com sucesso!");
+    }
+  </script>
+</body>
+</html>
