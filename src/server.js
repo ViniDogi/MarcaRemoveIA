@@ -40,9 +40,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
 
-const UPLOAD_DIR = path.join(projectRoot, 'web_uploads');
-const OUTPUT_DIR = path.join(projectRoot, 'web_outputs');
-const LOGS_DIR = path.join(projectRoot, 'logs');
+const isVercel = Boolean(process.env.VERCEL);
+const UPLOAD_DIR = isVercel ? '/tmp/web_uploads' : path.join(projectRoot, 'web_uploads');
+const OUTPUT_DIR = isVercel ? '/tmp/web_outputs' : path.join(projectRoot, 'web_outputs');
+const LOGS_DIR = isVercel ? '/tmp/logs' : path.join(projectRoot, 'logs');
 
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -633,19 +634,23 @@ app.post('/api/remote-download/update-bin', async (req, res) => {
   }
 });
 
-// Inicialização do Servidor
-app.listen(PORT, HOST, async () => {
-  console.log('\n============================================================');
-  console.log(` 🌐 Servidor Web MarcaRemoveIA Node.js (ESM) ativo:`);
-  console.log(` 👉 http://${HOST}:${PORT}`);
-  console.log('============================================================\n');
+// Inicialização do Servidor (executado apenas fora de ambientes serverless como Vercel)
+if (!process.env.VERCEL) {
+  app.listen(PORT, HOST, async () => {
+    console.log('\n============================================================');
+    console.log(` 🌐 Servidor Web MarcaRemoveIA Node.js (ESM) ativo:`);
+    console.log(` 👉 http://${HOST}:${PORT}`);
+    console.log('============================================================\n');
 
-  // Detecta encoders em segundo plano logo no início
-  try {
-    const hw = await detectHardwareEncoders();
-    console.log(`[Hardware] Encoders detectados: ${hw.availableEncoders.join(', ') || 'nenhum'}`);
-    console.log(`[Hardware] Encoder primário: ${hw.primaryEncoder}`);
-  } catch (e) {
-    console.warn('[Hardware] Aviso ao detectar encoders:', e.message);
-  }
-});
+    // Detecta encoders em segundo plano logo no início
+    try {
+      const hw = await detectHardwareEncoders();
+      console.log(`[Hardware] Encoders detectados: ${hw.availableEncoders.join(', ') || 'nenhum'}`);
+      console.log(`[Hardware] Encoder primário: ${hw.primaryEncoder}`);
+    } catch (e) {
+      console.warn('[Hardware] Aviso ao detectar encoders:', e.message);
+    }
+  });
+}
+
+export default app;
