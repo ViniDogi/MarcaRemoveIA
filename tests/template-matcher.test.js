@@ -12,6 +12,7 @@ import {
   dilateMask
 } from '../src/core/template-matcher.js';
 import { getFfmpegBinary, spawnPromise } from '../src/utils/ffmpeg.js';
+import { ensureSyntheticVideo } from './ensure-test-assets.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,6 +44,7 @@ test('Template Matcher: Criação e dilatação de máscara alpha', async () => 
 });
 
 test('Template Matcher: Localização por Imagem em Vídeo Sintético', async () => {
+  await ensureSyntheticVideo();
   const videoPath = path.join(testsDir, 'synthetic_watermark.mp4');
   assert.ok(fs.existsSync(videoPath), 'Vídeo sintético deve existir');
 
@@ -70,6 +72,7 @@ test('Template Matcher: Localização por Imagem em Vídeo Sintético', async ()
 });
 
 test('Template Matcher: Geração de Prévia de 1 Frame', async () => {
+  await ensureSyntheticVideo();
   const videoPath = path.join(testsDir, 'synthetic_watermark.mp4');
   const preview = await generateFramePreview({
     videoPath,

@@ -10,16 +10,19 @@ export default function handler(req, res) {
 
     const targetUrl = req.url || '';
 
-    // No ambiente Vercel Serverless, binários como FFmpeg e yt-dlp não estão disponíveis
+    // No ambiente Vercel Serverless, fornece status de hardware informativo
     if (isVercel) {
       if (targetUrl.includes('/api/hardware')) {
         return res.status(200).json({
           ffmpegInstalled: false,
           isVercel: true,
-          instruction: "Ambiente Vercel detectado. O processamento com IA e FFmpeg requer execução local. Execute 'run_web.bat' no seu computador e acesse http://127.0.0.1:8000.",
-          availableEncoders: ["libx264"],
-          primaryEncoder: "libx264",
-          encoderLabels: [{ id: "libx264", label: "CPU Universal (libx264)" }]
+          instruction: "Ambiente Web/Vercel ativo. Uploads diretos até 4.5MB e processamento no navegador suportados.",
+          availableEncoders: ["client_canvas", "libx264"],
+          primaryEncoder: "client_canvas",
+          encoderLabels: [
+            { id: "client_canvas", label: "Navegador Web (Canvas Client-side)" },
+            { id: "libx264", label: "CPU Universal (libx264)" }
+          ]
         });
       }
 
@@ -30,20 +33,6 @@ export default function handler(req, res) {
           version: '2.0.0',
           platform: 'vercel-serverless',
           isVercel: true
-        });
-      }
-
-      if (
-        targetUrl.includes('/api/upload') ||
-        targetUrl.includes('/api/remote-download') ||
-        targetUrl.includes('/api/process') ||
-        targetUrl.includes('/api/detect-ai') ||
-        targetUrl.includes('/api/match-template') ||
-        targetUrl.includes('/api/preview-frame')
-      ) {
-        return res.status(200).json({
-          success: false,
-          error: "O ambiente serverless da Vercel não possui suporte a FFmpeg, yt-dlp ou uploads pesados (>4.5MB). Execute o MarcaRemoveIA no seu computador executando 'run_web.bat' (ou 'run.bat') e acesse http://127.0.0.1:8000."
         });
       }
     }

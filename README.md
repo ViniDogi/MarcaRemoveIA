@@ -79,8 +79,9 @@ MarcaRemoveIA/
 │   │   └── models-manifest.json # Manifesto de modelos neurais com SHA-256
 │   └── utils/
 │       └── ffmpeg.js         # Utilitários FFmpeg/FFprobe e validações de mídia
-├── templates/
-│   └── index.html            # Interface moderna SPA (TailwindCSS, Canvas com handles)
+├── index.html                # Interface moderna SPA (TailwindCSS, Canvas interativo e motor de gravação no navegador)
+├── api/
+│   └── index.js              # Handler Serverless Vercel
 ├── tests/
 │   ├── parity.test.js        # Teste de paridade com vídeo sintético
 │   ├── encoder.test.js       # Testes de detecção de hardware e fallback

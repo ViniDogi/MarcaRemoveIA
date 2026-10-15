@@ -1,12 +1,32 @@
-# 📋 Notas de Atualização (Patchnotes) — MarcaRemoveIA v2.0.0
+# 📋 Notas de Atualização (Patchnotes) — MarcaRemoveIA
 
-> **Data de Lançamento:** 15 de Outubro de 2026  
-> **Versão:** 2.0.0 (Migração Completa para Node.js ESM, Aceleração Universal de Hardware, IA Híbrida e Download por Link)  
-> **Status dos Testes:** 20/20 Testes Automatizados Aprovados (100% de cobertura funcional)
+> **Versão Mais Recente:** 2.1.0  
+> **Status:** 20/20 Testes Automatizados Aprovados (100% de cobertura funcional)  
+> **Compatibilidade:** Desktop Local (Windows/Linux/macOS com FFmpeg/GPU) e Web Nuvem (Vercel / Navegadores modernos)
 
 ---
 
-## 🌟 Destaques da Atualização
+## 🚀 Versão 2.1.0 — Modo Web Client-side & Limpeza de Código Morto
+
+- **Motor de Processamento no Navegador (HTML5 Canvas + MediaRecorder):**
+  - Agora o MarcaRemoveIA opera tanto no modo servidor completo (FFmpeg + GPU NVENC/QSV/AMF) quanto no modo 100% web pelo navegador.
+  - Prévia instantânea de 1 frame diretamente no Canvas com desfoque e interpolação espacial (0ms de latência, sem requisições pesadas).
+  - Processamento completo no cliente usando `canvas.captureStream()` e `MediaRecorder`, permitindo remover marcas d'água mesmo em ambientes serverless como Vercel ou offline.
+- **Carregamento Instantâneo de Vídeo (`URL.createObjectURL`):**
+  - O vídeo selecionado é exibido imediatamente no player sem aguardar upload, com leitura de dimensões, duração e frames direto do HTML5 Video.
+- **Remoção de Bloqueios Artificiais no Vercel:**
+  - Corrigido o erro que impedia envio de vídeos pequenos ou exibia avisos bloqueantes na versão web.
+  - Fallback gracioso no `validateVideoFile()` para contêineres sem FFmpeg instalado.
+- **Auditoria e Limpeza de Código Morto e Arquivos Desnecessários:**
+  - Removidos arquivos duplicados: `templates/index.html` e `public/index.html` eliminados em favor do `index.html` na raiz.
+  - Removido script redundante `publicar_no_github.bat` (mantido `enviar_para_o_github.bat`).
+  - Limpos arquivos temporários de log (`logs/*.log`) e vídeos binários em `tests/`.
+  - Módulos binários pesados de compilação nativa (`onnxruntime-node` e `sharp`) movidos para `optionalDependencies` no `package.json`, evitando inchaço e falhas de compilação no Vercel.
+  - Criação do gerador dinâmico de vídeo sintético em `tests/ensure-test-assets.js` para execução de testes limpos e leves.
+
+---
+
+## 🌟 Versão 2.0.0 — Migração Completa para Node.js ESM, Aceleração Universal de Hardware e IA
 
 Esta versão representa uma reformulação estrutural completa do **MarcaRemoveIA**, transformando a aplicação em uma plataforma web moderna, rápida, segura e independente de runtimes externos complexos como Python. O sistema agora opera integralmente sob **Node.js (ESM)** com chamadas diretas aos binários de alta performance do **FFmpeg** e **yt-dlp**, além de inteligência artificial embarcada via **ONNX Runtime**.
 

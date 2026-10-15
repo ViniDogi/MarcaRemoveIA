@@ -17,6 +17,7 @@ import {
 import {
   WatermarkProcessor
 } from '../src/core/processor.js';
+import { ensureSyntheticVideo } from './ensure-test-assets.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,6 +25,7 @@ const projectRoot = path.resolve(__dirname, '..');
 const testsDir = path.join(projectRoot, 'tests');
 
 test('1. Metadados e Validação de Vídeo', async () => {
+  await ensureSyntheticVideo();
   const videoPath = path.join(testsDir, 'synthetic_watermark.mp4');
   assert.ok(fs.existsSync(videoPath), 'Vídeo sintético deve existir');
 

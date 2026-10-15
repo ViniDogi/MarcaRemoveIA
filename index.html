@@ -239,6 +239,7 @@
         </div>
         <select id="hwAccelSelect" onchange="onHwAccelChange()" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-cyan-500">
           <option value="auto">Automático (Mais rápido detectado com fallback)</option>
+          <option value="client_canvas">Navegador Web (Canvas Client-side)</option>
           <option value="h264_nvenc">NVIDIA (NVENC)</option>
           <option value="h264_qsv">Intel (QuickSync)</option>
           <option value="h264_amf">AMD (AMF - Windows)</option>
@@ -500,19 +501,17 @@
         detectedHardware = data;
 
         if (data.isVercel) {
-          if (statusText) statusText.innerText = "Nuvem (Vercel)";
+          if (statusText) statusText.innerText = "Modo Web (Navegador)";
           if (statusBadge) {
-            statusBadge.className = "text-xs text-amber-400 font-medium bg-amber-950/60 px-3 py-1.5 rounded-xl border border-amber-800/40 flex items-center gap-1.5";
+            statusBadge.className = "text-xs text-cyan-400 font-medium bg-cyan-950/60 px-3 py-1.5 rounded-xl border border-cyan-800/40 flex items-center gap-1.5";
           }
           if (statusDot) {
-            statusDot.className = "w-2 h-2 rounded-full bg-amber-400";
+            statusDot.className = "w-2 h-2 rounded-full bg-cyan-400";
           }
-          if (backendBanner) {
-            backendBanner.classList.remove("hidden");
-            if (backendText) {
-              backendText.innerHTML = "<strong>Ambiente Vercel Detectado:</strong> Esta página está hospedada no Vercel. O processamento com IA, FFmpeg e download com yt-dlp requerem recursos locais. Para usá-los, execute o <code>run_web.bat</code> (ou <code>run.bat</code>) no seu computador e acesse <strong>http://127.0.0.1:8000</strong>.";
-            }
-          }
+          if (backendBanner) backendBanner.classList.add("hidden");
+          const sel = document.getElementById("hwAccelSelect");
+          if (sel) sel.value = "client_canvas";
+          document.getElementById("activeEncoderLabel").innerText = "Ativo: Navegador (Canvas)";
         } else {
           if (statusText) statusText.innerText = "Servidor Ativo";
           if (statusBadge) {
@@ -524,7 +523,7 @@
           if (backendBanner) backendBanner.classList.add("hidden");
         }
 
-        if (!data.ffmpegInstalled) {
+        if (!data.ffmpegInstalled && !data.isVercel) {
           const banner = document.getElementById("ffmpegAlertBanner");
           if (banner) {
             banner.classList.remove("hidden");
@@ -532,29 +531,32 @@
               document.getElementById("ffmpegAlertText").innerText = data.instruction;
             }
           }
+        } else {
+          const banner = document.getElementById("ffmpegAlertBanner");
+          if (banner) banner.classList.add("hidden");
         }
 
         const primary = data.primaryEncoder || 'libx264';
         const label = (data.encoderLabels || []).find(e => e.id === primary)?.label || primary;
         
         document.getElementById("hwStatusText").innerText = label;
-        document.getElementById("activeEncoderLabel").innerText = `Ativo: ${primary}`;
+        if (!data.isVercel) {
+          document.getElementById("activeEncoderLabel").innerText = `Ativo: ${primary}`;
+        }
         document.getElementById("hwStatusBadge").classList.remove("hidden");
       } catch (err) {
         console.warn("Aviso ao carregar dados de hardware:", err);
-        if (statusText) statusText.innerText = "Servidor Offline";
+        if (statusText) statusText.innerText = "Modo Navegador";
         if (statusBadge) {
-          statusBadge.className = "text-xs text-red-400 font-medium bg-red-950/60 px-3 py-1.5 rounded-xl border border-red-800/40 flex items-center gap-1.5";
+          statusBadge.className = "text-xs text-cyan-400 font-medium bg-cyan-950/60 px-3 py-1.5 rounded-xl border border-cyan-800/40 flex items-center gap-1.5";
         }
         if (statusDot) {
-          statusDot.className = "w-2 h-2 rounded-full bg-red-400";
+          statusDot.className = "w-2 h-2 rounded-full bg-cyan-400";
         }
-        if (backendBanner) {
-          backendBanner.classList.remove("hidden");
-          if (backendText) {
-            backendText.innerHTML = "<strong>Servidor Backend não conectado:</strong> O backend do MarcaRemoveIA não respondeu em <code>/api</code>. Certifique-se de executar o <code>run_web.bat</code> (ou <code>run.bat</code>) e acessar via <strong>http://127.0.0.1:8000</strong>.";
-          }
-        }
+        if (backendBanner) backendBanner.classList.add("hidden");
+        const sel = document.getElementById("hwAccelSelect");
+        if (sel) sel.value = "client_canvas";
+        document.getElementById("activeEncoderLabel").innerText = "Ativo: Navegador (Canvas)";
       }
     }
 
@@ -564,7 +566,11 @@
 
     function onHwAccelChange() {
       const selected = document.getElementById("hwAccelSelect").value;
-      document.getElementById("activeEncoderLabel").innerText = selected === 'auto' ? 'Automático' : selected;
+      if (selected === 'client_canvas') {
+        document.getElementById("activeEncoderLabel").innerText = 'Navegador (Canvas)';
+      } else {
+        document.getElementById("activeEncoderLabel").innerText = selected === 'auto' ? 'Automático' : selected;
+      }
     }
 
     function showToast(message, icon = "ℹ️") {
@@ -577,41 +583,67 @@
       }, 3500);
     }
 
-    // Upload de Vídeo
+    let currentLocalFile = null;
+
+    // Upload e Carregamento de Vídeo (Suporte Híbrido Local e Nuvem)
     async function handleFileUpload(file) {
       if (!file) return;
-      document.getElementById("statusText").innerText = "Enviando vídeo para o servidor...";
+      currentLocalFile = file;
 
-      const formData = new FormData();
-      formData.append("file", file);
+      // 1. Carrega prévia imediata no player HTML5 Video via URL de objeto local
+      const localUrl = URL.createObjectURL(file);
+      video.src = localUrl;
+      video.classList.remove("hidden");
+      document.getElementById("placeholderPreview").classList.add("hidden");
 
-      try {
-        const resp = await fetch("/api/upload", { method: "POST", body: formData });
-        const data = await parseJsonResponse(resp, "Falha no envio do vídeo");
+      // 2. Extrai metadados do elemento HTML5 Video
+      video.onloadedmetadata = () => {
+        const w = video.videoWidth || 1920;
+        const h = video.videoHeight || 1080;
+        const dur = video.duration || 10;
+        videoMeta = {
+          width: w,
+          height: h,
+          duration: dur,
+          fps: 30.0,
+          nb_frames: Math.round(dur * 30)
+        };
 
-        if (data.success) {
-          currentVideoId = data.video_id;
-          videoMeta = data.metadata;
+        document.getElementById("infoName").innerText = file.name;
+        document.getElementById("infoRes").innerText = `${w}x${h}`;
+        document.getElementById("infoDur").innerText = `${Math.floor(dur)}s (~${Math.round(dur * 30)} frames)`;
+        document.getElementById("infoFps").innerText = `~30 fps`;
+        document.getElementById("videoInfoCard").classList.remove("hidden");
 
-          document.getElementById("infoName").innerText = file.name;
-          document.getElementById("infoRes").innerText = `${videoMeta.width}x${videoMeta.height}`;
-          document.getElementById("infoDur").innerText = `${Math.floor(videoMeta.duration)}s (${videoMeta.nb_frames} frames)`;
-          document.getElementById("infoFps").innerText = `${videoMeta.fps.toFixed(2)} fps`;
-          document.getElementById("videoInfoCard").classList.remove("hidden");
+        document.getElementById("btnAiDetect").disabled = false;
+        document.getElementById("btnProcess").disabled = false;
+        document.getElementById("btnPreviewFrame").disabled = false;
+        document.getElementById("statusText").innerText = "Vídeo carregado com sucesso. Marque a marca d'água.";
+        showToast("Vídeo pronto para edição!", "📹");
+        initCanvas();
+      };
 
-          video.src = data.video_url;
-          video.classList.remove("hidden");
-          document.getElementById("placeholderPreview").classList.add("hidden");
-
-          document.getElementById("btnAiDetect").disabled = false;
-          document.getElementById("btnProcess").disabled = false;
-          document.getElementById("statusText").innerText = "Vídeo carregado com sucesso. Marque a marca d'água.";
-          showToast("Vídeo pronto para edição!", "📹");
-        } else {
-          showErrorModal("Erro ao carregar vídeo", data.error || "Formato inválido.");
+      // 3. Tenta sincronizar com o servidor em segundo plano para aceleração de hardware se disponível
+      if (file.size <= 4.5 * 1024 * 1024 || !detectedHardware?.isVercel) {
+        try {
+          const formData = new FormData();
+          formData.append("file", file);
+          const resp = await fetch("/api/upload", { method: "POST", body: formData });
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data.success) {
+              currentVideoId = data.video_id;
+              if (data.metadata && !data.metadata.isFallbackMetadata) {
+                videoMeta = data.metadata;
+                document.getElementById("infoRes").innerText = `${videoMeta.width}x${videoMeta.height}`;
+                document.getElementById("infoDur").innerText = `${Math.floor(videoMeta.duration)}s (${videoMeta.nb_frames} frames)`;
+                document.getElementById("infoFps").innerText = `${videoMeta.fps.toFixed(2)} fps`;
+              }
+            }
+          }
+        } catch (e) {
+          console.log("Upload em segundo plano ignorado (modo navegador ativo):", e.message);
         }
-      } catch (err) {
-        showErrorModal("Falha no Envio", err.message);
       }
     }
 
@@ -986,17 +1018,61 @@
       }
     }
 
+    // Algoritmo de remoção client-side via interpolação e desfoque espacial no Canvas
+    function applyClientWatermarkRemoval(targetCtx, x, y, w, h) {
+      if (w <= 0 || h <= 0) return;
+      targetCtx.save();
+      targetCtx.beginPath();
+      targetCtx.rect(x, y, w, h);
+      targetCtx.clip();
+
+      // Aplica desfoque gaussiano suave sobre a região
+      targetCtx.filter = "blur(18px)";
+      targetCtx.drawImage(
+        targetCtx.canvas,
+        Math.max(0, x - 6), Math.max(0, y - 6), w + 12, h + 12,
+        x, y, w, h
+      );
+      targetCtx.filter = "none";
+      targetCtx.restore();
+    }
+
     async function requestFramePreview() {
-      if (!currentVideoId || boxes.length === 0) {
+      if (boxes.length === 0) {
         showToast("Nenhuma região marcada para prévia!", "⚠️");
         return;
       }
 
-      const currentTime = video.currentTime || 0;
       const btn = document.getElementById("btnPreviewFrame");
       btn.disabled = true;
       btn.innerText = "⏳ Gerando...";
 
+      // Se estiver no Vercel ou modo navegador, renderiza diretamente no Canvas
+      if (detectedHardware?.isVercel || !currentVideoId) {
+        try {
+          const pCanvas = document.createElement("canvas");
+          pCanvas.width = videoMeta.width || video.videoWidth || 1280;
+          pCanvas.height = videoMeta.height || video.videoHeight || 720;
+          const pctx = pCanvas.getContext("2d");
+
+          pctx.drawImage(video, 0, 0, pCanvas.width, pCanvas.height);
+          boxes.forEach(b => {
+            applyClientWatermarkRemoval(pctx, b.x, b.y, b.w, b.h);
+          });
+
+          const dataUrl = pCanvas.toDataURL("image/jpeg", 0.95);
+          document.getElementById("previewFrameImg").src = dataUrl;
+          document.getElementById("previewModal").classList.remove("hidden");
+        } catch (err) {
+          showErrorModal("Erro na Prévia", "Não foi possível capturar o quadro do vídeo: " + err.message);
+        } finally {
+          btn.disabled = false;
+          btn.innerText = "👁️ Prévia (1 Frame)";
+        }
+        return;
+      }
+
+      const currentTime = video.currentTime || 0;
       try {
         const resp = await fetch("/api/preview-frame", {
           method: "POST",
@@ -1009,8 +1085,7 @@
         });
 
         if (!resp.ok) {
-          const errData = await parseJsonResponse(resp, "Falha na geração do quadro de prévia").catch(e => ({ error: e.message }));
-          throw new Error(errData.error || "Falha na geração do quadro de prévia");
+          throw new Error("Falha no servidor. Usando renderizador do navegador.");
         }
 
         const blob = await resp.blob();
@@ -1018,7 +1093,19 @@
         document.getElementById("previewFrameImg").src = objUrl;
         document.getElementById("previewModal").classList.remove("hidden");
       } catch (err) {
-        showErrorModal("Erro na Prévia", err.message);
+        console.warn("Prévia via servidor indisponível, usando prévia local do navegador:", err.message);
+        try {
+          const pCanvas = document.createElement("canvas");
+          pCanvas.width = videoMeta.width || video.videoWidth || 1280;
+          pCanvas.height = videoMeta.height || video.videoHeight || 720;
+          const pctx = pCanvas.getContext("2d");
+          pctx.drawImage(video, 0, 0, pCanvas.width, pCanvas.height);
+          boxes.forEach(b => applyClientWatermarkRemoval(pctx, b.x, b.y, b.w, b.h));
+          document.getElementById("previewFrameImg").src = pCanvas.toDataURL("image/jpeg", 0.95);
+          document.getElementById("previewModal").classList.remove("hidden");
+        } catch (e2) {
+          showErrorModal("Erro na Prévia", err.message);
+        }
       } finally {
         btn.disabled = false;
         btn.innerText = "👁️ Prévia (1 Frame)";
@@ -1031,7 +1118,10 @@
 
     // Detecção com IA
     async function detectWithAI() {
-      if (!currentVideoId) return;
+      if (!currentVideoId) {
+        showToast("Carregue um vídeo primeiro!", "⚠️");
+        return;
+      }
       document.getElementById("statusText").innerText = "🤖 IA analisando frame em busca de marcas d'água...";
       document.getElementById("btnAiDetect").disabled = true;
 
@@ -1062,9 +1152,159 @@
       }
     }
 
-    // Início do Processamento com SSE (Server-Sent Events)
+    let clientAbortController = null;
+
+    // Motor de Processamento Direto no Navegador (HTML5 Canvas + MediaRecorder)
+    async function processVideoClientSide() {
+      const dur = video.duration;
+      if (!dur || isNaN(dur) || dur <= 0) {
+        showErrorModal("Erro", "Não foi possível determinar a duração do vídeo para processamento.");
+        finishProcessing();
+        return;
+      }
+
+      document.getElementById("statusText").innerText = "Processando vídeo diretamente no navegador (Canvas + MediaRecorder)...";
+      document.getElementById("activeEncoderLabel").innerText = "Ativo: Navegador (Canvas)";
+
+      const recCanvas = document.createElement("canvas");
+      recCanvas.width = videoMeta.width || video.videoWidth || 1280;
+      recCanvas.height = videoMeta.height || video.videoHeight || 720;
+      const rctx = recCanvas.getContext("2d");
+
+      // Seleciona MIME type suportado pelo navegador
+      const mimeTypes = [
+        "video/mp4;codecs=avc1",
+        "video/mp4",
+        "video/webm;codecs=vp9,opus",
+        "video/webm;codecs=vp8,opus",
+        "video/webm"
+      ];
+      let selectedMime = "";
+      for (const m of mimeTypes) {
+        if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(m)) {
+          selectedMime = m;
+          break;
+        }
+      }
+
+      if (!selectedMime || typeof MediaRecorder === 'undefined') {
+        showErrorModal("MediaRecorder não suportado", "Seu navegador não suporta gravação de vídeo via MediaRecorder. Recomendamos o Google Chrome, Edge ou Firefox.");
+        finishProcessing();
+        return;
+      }
+
+      const canvasStream = recCanvas.captureStream(30);
+
+      // Trilha de áudio
+      const keepAudio = document.getElementById("chkKeepAudio").checked;
+      if (keepAudio) {
+        try {
+          const videoAudioStream = video.captureStream ? video.captureStream() : (video.mozCaptureStream ? video.mozCaptureStream() : null);
+          if (videoAudioStream && videoAudioStream.getAudioTracks().length > 0) {
+            canvasStream.addTrack(videoAudioStream.getAudioTracks()[0]);
+          }
+        } catch (e) {
+          console.warn("Trilha de áudio nativa não acessível:", e);
+        }
+      }
+
+      let mediaRecorder;
+      try {
+        mediaRecorder = new MediaRecorder(canvasStream, {
+          mimeType: selectedMime,
+          videoBitsPerSecond: 4000000
+        });
+      } catch (e) {
+        mediaRecorder = new MediaRecorder(canvasStream);
+      }
+
+      const recordedChunks = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          recordedChunks.push(e.data);
+        }
+      };
+
+      let isCancelled = false;
+      clientAbortController = () => {
+        isCancelled = true;
+        if (mediaRecorder && mediaRecorder.state !== "inactive") {
+          mediaRecorder.stop();
+        }
+        video.pause();
+        finishProcessing();
+        document.getElementById("statusText").innerText = "Processamento cancelado pelo usuário.";
+        showToast("Cancelado.", "🛑");
+      };
+
+      mediaRecorder.onstop = () => {
+        if (isCancelled) return;
+        const finalBlob = new Blob(recordedChunks, { type: selectedMime });
+        const downloadUrl = URL.createObjectURL(finalBlob);
+        const ext = selectedMime.includes("mp4") ? "mp4" : "webm";
+
+        finishProcessing();
+        document.getElementById("downloadArea").classList.remove("hidden");
+        const btnDl = document.getElementById("btnDownload");
+        btnDl.href = downloadUrl;
+        btnDl.download = `video_sem_marca.${ext}`;
+        document.getElementById("statusText").innerText = "✅ Processamento no navegador concluído! Clique em Baixar.";
+        showToast("Vídeo processado com sucesso!", "🎉");
+      };
+
+      mediaRecorder.start(250);
+
+      const origCurrentTime = video.currentTime;
+      video.currentTime = 0;
+      video.muted = true;
+
+      try {
+        await video.play();
+      } catch (err) {
+        console.warn("Autoplay bloqueado:", err);
+      }
+
+      const totalDuration = video.duration;
+
+      function renderFrame() {
+        if (isCancelled) return;
+        if (video.ended || video.currentTime >= totalDuration) {
+          mediaRecorder.stop();
+          video.currentTime = origCurrentTime;
+          return;
+        }
+
+        // Renderiza vídeo no canvas
+        rctx.drawImage(video, 0, 0, recCanvas.width, recCanvas.height);
+
+        // Aplica remoção de marcas d'água
+        boxes.forEach(b => {
+          applyClientWatermarkRemoval(rctx, b.x, b.y, b.w, b.h);
+        });
+
+        // Atualiza progresso
+        const progress = Math.min(100, Math.round((video.currentTime / totalDuration) * 100));
+        document.getElementById("progressBar").style.width = progress + "%";
+        document.getElementById("progressPercent").innerText = progress + "%";
+        document.getElementById("statusText").innerText = `Processando: ${progress}% (${video.currentTime.toFixed(1)}s / ${totalDuration.toFixed(1)}s)`;
+
+        if ('requestVideoFrameCallback' in video) {
+          video.requestVideoFrameCallback(renderFrame);
+        } else {
+          requestAnimationFrame(renderFrame);
+        }
+      }
+
+      if ('requestVideoFrameCallback' in video) {
+        video.requestVideoFrameCallback(renderFrame);
+      } else {
+        requestAnimationFrame(renderFrame);
+      }
+    }
+
+    // Início do Processamento com Fallback Automático para Navegador
     async function startProcessing() {
-      if (!currentVideoId || boxes.length === 0) {
+      if (boxes.length === 0) {
         showToast("Selecione pelo menos uma região no vídeo!", "⚠️");
         return;
       }
@@ -1076,9 +1316,16 @@
       document.getElementById("btnProcess").disabled = true;
       document.getElementById("btnCancel").classList.remove("hidden");
       document.getElementById("downloadArea").classList.add("hidden");
-      document.getElementById("statusText").innerText = "Iniciando processamento no servidor...";
       document.getElementById("progressBar").style.width = "0%";
       document.getElementById("progressPercent").innerText = "0%";
+
+      // Se for modo navegador (Vercel ou sem backend local ou seleção manual de Canvas)
+      if (detectedHardware?.isVercel || !currentVideoId || engine === 'client_canvas') {
+        processVideoClientSide();
+        return;
+      }
+
+      document.getElementById("statusText").innerText = "Iniciando processamento no servidor...";
 
       try {
         const resp = await fetch("/api/process", {
@@ -1101,9 +1348,9 @@
           throw new Error(data.error || "Falha ao iniciar tarefa");
         }
       } catch (err) {
-        showErrorModal("Erro ao Iniciar", err.message);
-        document.getElementById("btnProcess").disabled = false;
-        document.getElementById("btnCancel").classList.add("hidden");
+        console.warn("Processamento via servidor indisponível. Alternando para o navegador:", err.message);
+        showToast("Processando diretamente pelo navegador...", "🌐");
+        processVideoClientSide();
       }
     }
 
@@ -1374,6 +1621,11 @@
 
     // Cancelar Tarefa Ativa
     async function cancelProcessing() {
+      if (clientAbortController) {
+        clientAbortController();
+        clientAbortController = null;
+        return;
+      }
       if (!activeTaskId) return;
       document.getElementById("statusText").innerText = "Enviando solicitação de cancelamento...";
       try {

@@ -10,6 +10,7 @@ import {
   detectHybridWatermarks,
   EXECUTION_PROVIDERS_PRIORITY
 } from '../src/core/onnx-engine.js';
+import { ensureSyntheticVideo } from './ensure-test-assets.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,6 +60,7 @@ test('ONNX Engine: Suavização de Trajetória Temporal', () => {
 });
 
 test('ONNX Engine: Detecção Híbrida em Vídeo Sintético', async () => {
+  await ensureSyntheticVideo();
   const videoPath = path.join(testsDir, 'synthetic_watermark.mp4');
   assert.ok(fs.existsSync(videoPath), 'Vídeo de teste deve existir');
 

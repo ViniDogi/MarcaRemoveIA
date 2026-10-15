@@ -113,11 +113,7 @@ app.get('/api/health', (req, res) => {
 app.get('/', (req, res) => {
   const candidates = [
     path.join(projectRoot, 'index.html'),
-    path.join(process.cwd(), 'index.html'),
-    path.join(projectRoot, 'public', 'index.html'),
-    path.join(projectRoot, 'templates', 'index.html'),
-    path.join(process.cwd(), 'public', 'index.html'),
-    path.join(process.cwd(), 'templates', 'index.html')
+    path.join(process.cwd(), 'index.html')
   ];
   for (const htmlPath of candidates) {
     if (fs.existsSync(htmlPath)) {
