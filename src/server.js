@@ -22,6 +22,10 @@ import {
   detectWatermarksAi,
   extractFrameBuffer
 } from './core/ai-detector.js';
+import {
+  findWatermarkByImage,
+  generateFramePreview
+} from './core/template-matcher.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -178,6 +182,78 @@ app.post('/api/detect-ai', async (req, res) => {
   try {
     const boxes = await detectWatermarksAi(videoPath, timestamp);
     return res.json({ boxes });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// 6.1 Detecção de Marca d'Água por Imagem (Template Matching)
+app.post('/api/match-template', upload.single('template_image'), async (req, res) => {
+  const { video_id, is_mobile } = req.body;
+  if (!video_id) {
+    return res.status(400).json({ error: 'video_id é obrigatório.' });
+  }
+  if (!req.file) {
+    return res.status(400).json({ error: 'Imagem da marca d\'água é obrigatória.' });
+  }
+
+  const files = fs.readdirSync(UPLOAD_DIR);
+  const matched = files.find((f) => f.startsWith(video_id));
+  if (!matched) {
+    return res.status(404).json({ error: 'Vídeo não encontrado.' });
+  }
+
+  const videoPath = path.join(UPLOAD_DIR, matched);
+  const templateBuffer = fs.readFileSync(req.file.path);
+
+  try {
+    const result = await findWatermarkByImage({
+      videoPath,
+      templateBuffer,
+      sampleCount: 5,
+      isMobile: is_mobile === 'true' || is_mobile === true
+    });
+
+    return res.json({
+      success: true,
+      box: result.medianBox,
+      all_matches: result.allMatches,
+      mask_info: {
+        width: result.maskInfo.width,
+        height: result.maskInfo.height,
+        has_alpha: result.maskInfo.hasAlpha
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  } finally {
+    try { fs.unlinkSync(req.file.path); } catch {}
+  }
+});
+
+// 6.2 Prévia do Resultado em 1 Frame
+app.post('/api/preview-frame', async (req, res) => {
+  const { video_id, timestamp = 0, boxes = [] } = req.body;
+  if (!video_id) {
+    return res.status(400).json({ error: 'video_id é obrigatório.' });
+  }
+
+  const files = fs.readdirSync(UPLOAD_DIR);
+  const matched = files.find((f) => f.startsWith(video_id));
+  if (!matched) {
+    return res.status(404).json({ error: 'Vídeo não encontrado.' });
+  }
+
+  const videoPath = path.join(UPLOAD_DIR, matched);
+  try {
+    const previewBuffer = await generateFramePreview({
+      videoPath,
+      timestamp: parseFloat(timestamp) || 0,
+      boxes
+    });
+
+    res.setHeader('Content-Type', 'image/jpeg');
+    return res.send(previewBuffer);
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
