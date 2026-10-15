@@ -29,6 +29,12 @@ import {
 import {
   detectHybridWatermarks
 } from './core/onnx-engine.js';
+import {
+  getVideoInfo,
+  downloadVideo,
+  updateYtDlpBinary,
+  validateUrlAndCheckSSRF
+} from './core/downloader.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -476,6 +482,155 @@ app.post('/api/config', (req, res) => {
   }
   saveAiConfig(cfg);
   return res.json({ success: true });
+});
+
+// 14. Buscar Metadados de Vídeo por URL (yt-dlp com proteção SSRF)
+app.post('/api/remote-download/info', async (req, res) => {
+  const { url } = req.body;
+  if (!url) {
+    return res.status(400).json({ success: false, error: 'URL do vídeo é obrigatória.' });
+  }
+
+  try {
+    const info = await getVideoInfo(url);
+    return res.json({ success: true, info });
+  } catch (err) {
+    return res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// 15. Iniciar Download por Link (com suporte a pipeline de download + limpeza)
+app.post('/api/remote-download/start', async (req, res) => {
+  const { url, formatSelector, autoProcess, boxes, method, hardwareEncoder } = req.body;
+
+  try {
+    await validateUrlAndCheckSSRF(url);
+  } catch (err) {
+    return res.status(400).json({ success: false, error: err.message });
+  }
+
+  const taskId = `dl_${Date.now()}`;
+  const initialTask = {
+    id: taskId,
+    type: 'download',
+    status: 'Iniciando download...',
+    percent: 0,
+    speed: '',
+    eta: '',
+    done: false,
+    error: null,
+    autoProcess: Boolean(autoProcess)
+  };
+  tasks.set(taskId, initialTask);
+
+  // Execução assíncrona em segundo plano
+  (async () => {
+    try {
+      broadcastProgress(taskId, {
+        status: 'Conectando ao servidor e iniciando download...',
+        percent: 2
+      });
+
+      const dlResult = await downloadVideo({
+        url,
+        formatSelector,
+        taskId,
+        outputDir: UPLOAD_DIR,
+        onProgress: (p) => {
+          broadcastProgress(taskId, {
+            percent: p.percent,
+            speed: p.speed,
+            eta: p.eta,
+            status: `Baixando vídeo: ${p.percent.toFixed(1)}% (${p.speed || '...'} - ETA: ${p.eta || '--'})`
+          });
+        }
+      });
+
+      const validation = await validateVideoFile(dlResult.filePath);
+      if (!validation.valid) {
+        throw new Error(`Vídeo baixado é inválido: ${validation.error}`);
+      }
+
+      const videoId = path.basename(dlResult.filename, path.extname(dlResult.filename));
+      const ext = path.extname(dlResult.filename);
+      const videoUrl = `/api/video/${videoId}${ext}`;
+
+      if (autoProcess && Array.isArray(boxes) && boxes.length > 0) {
+        // Pipeline contínuo: Baixar e já processar
+        broadcastProgress(taskId, {
+          status: 'Download concluído! Iniciando remoção automática de marca d\'água...',
+          percent: 0,
+          stage: 'processing'
+        });
+
+        const outputPath = path.join(OUTPUT_DIR, `output_${taskId}.mp4`);
+        const processor = new WatermarkProcessor({
+          inputPath: dlResult.filePath,
+          outputPath,
+          watermarkBoxes: boxes,
+          method: method || 'delogo',
+          hardwareEncoder: hardwareEncoder || 'auto',
+          taskId,
+          onProgress: (percent, status) => {
+            broadcastProgress(taskId, {
+              percent,
+              status: `Processando vídeo: ${percent}% - ${status || ''}`,
+              stage: 'processing'
+            });
+          }
+        });
+
+        const currentTask = tasks.get(taskId);
+        if (currentTask) currentTask.processor = processor;
+
+        const result = await processor.process();
+        if (result.success) {
+          broadcastProgress(taskId, {
+            status: 'Vídeo baixado e processado com sucesso!',
+            percent: 100,
+            done: true,
+            stage: 'completed',
+            outputPath: result.outputPath,
+            download_url: `/api/download/${taskId}`,
+            encoderUsed: result.encoderUsed
+          });
+        } else {
+          throw new Error(result.error || 'Falha no processamento');
+        }
+      } else {
+        // Modo normal: baixa e disponibiliza para visualização e edição imediata
+        broadcastProgress(taskId, {
+          status: 'Download concluído com sucesso!',
+          percent: 100,
+          done: true,
+          readyForEditing: true,
+          video_id: videoId,
+          video_url: videoUrl,
+          metadata: validation.metadata,
+          filename: dlResult.filename
+        });
+      }
+    } catch (err) {
+      console.error(`Erro no download/pipeline da tarefa ${taskId}:`, err);
+      broadcastProgress(taskId, {
+        status: 'Erro no download',
+        error: err.message,
+        done: false
+      });
+    }
+  })();
+
+  return res.json({ success: true, task_id: taskId });
+});
+
+// 16. Atualizar Binário do yt-dlp
+app.post('/api/remote-download/update-bin', async (req, res) => {
+  try {
+    const result = await updateYtDlpBinary();
+    return res.json(result);
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // Inicialização do Servidor

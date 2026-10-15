@@ -75,14 +75,78 @@
     <!-- Coluna Esquerda: Controles -->
     <div class="bg-gray-900/90 backdrop-blur border border-gray-800/90 rounded-2xl p-5 sm:p-6 flex flex-col space-y-4 shadow-xl">
       
-      <!-- Upload Zone -->
+      <!-- Seletor de Origem do Vídeo: Local vs URL -->
       <div>
-        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">1. Selecionar Vídeo</label>
-        <div id="dropZone" onclick="document.getElementById('fileInput').click()" class="border-2 border-dashed border-gray-700 hover:border-cyan-500 rounded-xl p-4 sm:p-5 text-center cursor-pointer bg-gray-950/50 hover:bg-cyan-950/10 transition group">
-          <input type="file" id="fileInput" accept="video/*" class="hidden" onchange="handleFileUpload(this.files[0])">
-          <div class="text-3xl mb-1.5 group-hover:scale-110 transition-transform">📹</div>
-          <p class="text-sm font-medium text-gray-200">Arraste um vídeo aqui ou clique</p>
-          <p class="text-xs text-gray-500 mt-0.5">MP4, MKV, AVI, MOV ou WebM</p>
+        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">1. Obter Vídeo</label>
+        
+        <!-- Abas de Origem -->
+        <div class="grid grid-cols-2 p-1 bg-gray-950/80 rounded-xl border border-gray-800 text-xs mb-2.5">
+          <button id="tabSrcLocal" onclick="switchVideoSourceMode('local')" class="py-1.5 px-2 rounded-lg font-semibold bg-gray-800 text-cyan-300 transition shadow-sm">
+            📁 Arquivo Local
+          </button>
+          <button id="tabSrcRemote" onclick="switchVideoSourceMode('remote')" class="py-1.5 px-2 rounded-lg font-semibold text-gray-400 hover:text-gray-200 transition">
+            🔗 Baixar por Link
+          </button>
+        </div>
+
+        <!-- Conteúdo: Arquivo Local -->
+        <div id="srcLocalContent">
+          <div id="dropZone" onclick="document.getElementById('fileInput').click()" class="border-2 border-dashed border-gray-700 hover:border-cyan-500 rounded-xl p-4 sm:p-5 text-center cursor-pointer bg-gray-950/50 hover:bg-cyan-950/10 transition group">
+            <input type="file" id="fileInput" accept="video/*" class="hidden" onchange="handleFileUpload(this.files[0])">
+            <div class="text-3xl mb-1.5 group-hover:scale-110 transition-transform">📹</div>
+            <p class="text-sm font-medium text-gray-200">Arraste um vídeo aqui ou clique</p>
+            <p class="text-xs text-gray-500 mt-0.5">MP4, MKV, AVI, MOV ou WebM</p>
+          </div>
+        </div>
+
+        <!-- Conteúdo: Baixar por Link (yt-dlp) -->
+        <div id="srcRemoteContent" class="hidden space-y-2.5 bg-gray-950/60 p-3.5 rounded-xl border border-gray-800/80">
+          <div class="space-y-1.5">
+            <div class="flex justify-between items-center">
+              <label class="text-[11px] font-semibold text-gray-400">URL do Vídeo</label>
+              <button onclick="updateYtDlp()" class="text-[10px] text-cyan-400 hover:text-cyan-300 transition flex items-center gap-1">
+                🔄 Atualizar yt-dlp
+              </button>
+            </div>
+            <div class="flex gap-1.5">
+              <input type="url" id="remoteUrlInput" placeholder="https://www.youtube.com/watch?v=... ou link direto" class="flex-1 bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-cyan-500">
+              <button id="btnFetchRemoteInfo" onclick="fetchRemoteVideoInfo()" class="bg-cyan-600 hover:bg-cyan-500 text-gray-950 font-bold text-xs px-3 rounded-xl transition shadow flex items-center justify-center">
+                🔍 Buscar
+              </button>
+            </div>
+          </div>
+
+          <!-- Card de Metadados do Vídeo Remoto -->
+          <div id="remoteMetaCard" class="hidden space-y-2 pt-2 border-t border-gray-800/80">
+            <div class="flex gap-2.5 items-center">
+              <img id="remoteThumb" src="" alt="Thumbnail" class="w-16 h-10 object-cover rounded bg-black/50 border border-gray-800 flex-shrink-0">
+              <div class="overflow-hidden">
+                <p id="remoteTitle" class="text-xs text-gray-200 font-semibold truncate"></p>
+                <p id="remoteMetaExtra" class="text-[10px] text-gray-500 truncate"></p>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-semibold text-gray-400 mb-1">Qualidade do Download</label>
+              <select id="remoteQualitySelect" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-2.5 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-cyan-500">
+                <option value="best">Melhor Qualidade (Recomendado)</option>
+              </select>
+            </div>
+
+            <label class="flex items-center space-x-2 text-xs text-cyan-300 cursor-pointer pt-0.5">
+              <input type="checkbox" id="chkAutoProcess" class="rounded bg-gray-900 border-gray-700 text-cyan-500 focus:ring-0">
+              <span>⚡ Baixar e já processar diretamente</span>
+            </label>
+
+            <!-- Aviso Legal / Direitos Autorais -->
+            <p class="text-[10px] text-gray-500 leading-tight bg-gray-900/60 p-2 rounded-lg border border-gray-800/50">
+              ⚖️ <strong>Aviso:</strong> Baixe exclusivamente conteúdos com direitos autorais autorizados ou de uso pessoal. Respeite a legislação vigente.
+            </p>
+
+            <button id="btnStartRemoteDownload" onclick="startRemoteDownload()" class="w-full bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-gray-950 font-bold text-xs py-2.5 px-3 rounded-xl transition shadow flex items-center justify-center gap-1.5">
+              ⬇️ Iniciar Download do Vídeo
+            </button>
+          </div>
         </div>
       </div>
 
@@ -989,15 +1053,19 @@
     }
 
     function handleProgressUpdate(data) {
-      const pct = Math.round((data.progress || 0) * 100);
+      const pct = Math.round(data.percent !== undefined ? data.percent : (data.progress || 0) * 100);
       document.getElementById("progressBar").style.width = pct + "%";
       document.getElementById("progressPercent").innerText = pct + "%";
       document.getElementById("statusText").innerText = data.status || `Processando: ${pct}%`;
 
-      if (data.fps) {
+      if (data.speed) {
+        document.getElementById("metricFps").innerText = `${data.speed}`;
+        document.getElementById("metricFps").classList.remove("hidden");
+      } else if (data.fps) {
         document.getElementById("metricFps").innerText = `${data.fps} fps`;
         document.getElementById("metricFps").classList.remove("hidden");
       }
+
       if (data.eta && data.eta !== '--:--:--') {
         document.getElementById("metricEta").innerText = `ETA: ${data.eta}`;
         document.getElementById("metricEta").classList.remove("hidden");
@@ -1006,11 +1074,39 @@
         document.getElementById("activeEncoderLabel").innerText = `Uso: ${data.encoderInUse}`;
       }
 
+      // Se for download concluído pronto para edição
+      if (data.readyForEditing) {
+        finishProcessing();
+        currentVideoId = data.video_id;
+        videoMeta = data.metadata;
+
+        document.getElementById("infoName").innerText = data.filename || "video_baixado.mp4";
+        document.getElementById("infoRes").innerText = `${videoMeta.width}x${videoMeta.height}`;
+        document.getElementById("infoDur").innerText = `${Math.floor(videoMeta.duration)}s (${videoMeta.nb_frames || 0} frames)`;
+        document.getElementById("infoFps").innerText = `${(videoMeta.fps || 30).toFixed(2)} fps`;
+        document.getElementById("videoInfoCard").classList.remove("hidden");
+
+        video.src = data.video_url;
+        video.classList.remove("hidden");
+        document.getElementById("placeholderPreview").classList.add("hidden");
+
+        document.getElementById("btnAiDetect").disabled = false;
+        document.getElementById("btnProcess").disabled = false;
+        const btnDl = document.getElementById("btnStartRemoteDownload");
+        if (btnDl) btnDl.disabled = false;
+
+        document.getElementById("statusText").innerText = "Vídeo baixado pronto para edição. Marque a marca d'água.";
+        showToast("Vídeo pronto para edição!", "📹");
+        return;
+      }
+
       if (data.done) {
         finishProcessing();
         document.getElementById("downloadArea").classList.remove("hidden");
-        document.getElementById("btnDownload").href = `/api/download/${data.taskId || activeTaskId}`;
+        document.getElementById("btnDownload").href = data.download_url || `/api/download/${data.taskId || activeTaskId}`;
         document.getElementById("statusText").innerText = "✅ Concluído! Clique em Baixar.";
+        const btnDl = document.getElementById("btnStartRemoteDownload");
+        if (btnDl) btnDl.disabled = false;
         showToast("Vídeo concluído com sucesso!", "🎉");
       } else if (data.cancelled) {
         finishProcessing();
@@ -1018,7 +1114,148 @@
         showToast("Processamento cancelado.", "🛑");
       } else if (data.error) {
         finishProcessing();
+        const btnDl = document.getElementById("btnStartRemoteDownload");
+        if (btnDl) btnDl.disabled = false;
         showErrorModal("Erro no processamento do vídeo", data.error, activeTaskId);
+      }
+    }
+
+    // Funções de Download por Link (yt-dlp)
+    let remoteVideoInfo = null;
+
+    function switchVideoSourceMode(mode) {
+      const tabLocal = document.getElementById("tabSrcLocal");
+      const tabRemote = document.getElementById("tabSrcRemote");
+      const localContent = document.getElementById("srcLocalContent");
+      const remoteContent = document.getElementById("srcRemoteContent");
+
+      if (mode === 'remote') {
+        tabRemote.classList.add("bg-gray-800", "text-cyan-300");
+        tabRemote.classList.remove("text-gray-400");
+        tabLocal.classList.remove("bg-gray-800", "text-cyan-300");
+        tabLocal.classList.add("text-gray-400");
+
+        remoteContent.classList.remove("hidden");
+        localContent.classList.add("hidden");
+      } else {
+        tabLocal.classList.add("bg-gray-800", "text-cyan-300");
+        tabLocal.classList.remove("text-gray-400");
+        tabRemote.classList.remove("bg-gray-800", "text-cyan-300");
+        tabRemote.classList.add("text-gray-400");
+
+        localContent.classList.remove("hidden");
+        remoteContent.classList.add("hidden");
+      }
+    }
+
+    async function fetchRemoteVideoInfo() {
+      const urlInput = document.getElementById("remoteUrlInput");
+      const url = urlInput.value.trim();
+      if (!url) {
+        showToast("Insira a URL do vídeo!", "⚠️");
+        return;
+      }
+
+      const btn = document.getElementById("btnFetchRemoteInfo");
+      btn.disabled = true;
+      btn.innerText = "⏳ Buscando...";
+      document.getElementById("statusText").innerText = "Buscando metadados do vídeo com yt-dlp...";
+
+      try {
+        const resp = await fetch("/api/remote-download/info", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url })
+        });
+        const data = await resp.json();
+
+        if (data.success && data.info) {
+          remoteVideoInfo = data.info;
+          document.getElementById("remoteTitle").innerText = data.info.title;
+          document.getElementById("remoteTitle").title = data.info.title;
+          document.getElementById("remoteThumb").src = data.info.thumbnail || "";
+          document.getElementById("remoteMetaExtra").innerText = `${data.info.uploader} • ${data.info.durationFormatted}`;
+
+          const qualitySelect = document.getElementById("remoteQualitySelect");
+          qualitySelect.innerHTML = "";
+          (data.info.qualities || []).forEach(q => {
+            const opt = document.createElement("option");
+            opt.value = q.formatSelector;
+            const sizeStr = q.approxSizeMb ? ` (~${q.approxSizeMb} MB)` : '';
+            opt.innerText = `${q.label}${sizeStr}`;
+            qualitySelect.appendChild(opt);
+          });
+
+          document.getElementById("remoteMetaCard").classList.remove("hidden");
+          document.getElementById("statusText").innerText = "Informações do vídeo obtidas com sucesso!";
+          showToast("Vídeo encontrado!", "🎬");
+        } else {
+          showErrorModal("Erro ao buscar link", data.error || "Não foi possível extrair metadados da URL.");
+        }
+      } catch (err) {
+        showErrorModal("Falha de Conexão", err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = "🔍 Buscar";
+      }
+    }
+
+    async function startRemoteDownload() {
+      const urlInput = document.getElementById("remoteUrlInput");
+      const url = urlInput.value.trim();
+      if (!url) return;
+
+      const formatSelector = document.getElementById("remoteQualitySelect").value;
+      const autoProcess = document.getElementById("chkAutoProcess").checked;
+      const engine = document.getElementById("hwAccelSelect").value;
+
+      document.getElementById("btnStartRemoteDownload").disabled = true;
+      document.getElementById("btnCancel").classList.remove("hidden");
+      document.getElementById("statusText").innerText = "Iniciando download do vídeo via yt-dlp...";
+      document.getElementById("progressBar").style.width = "0%";
+      document.getElementById("progressPercent").innerText = "0%";
+
+      try {
+        const resp = await fetch("/api/remote-download/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url,
+            formatSelector,
+            autoProcess,
+            boxes: boxes,
+            hardwareEncoder: engine
+          })
+        });
+        const data = await resp.json();
+
+        if (data.success && data.task_id) {
+          activeTaskId = data.task_id;
+          setupSseStream(activeTaskId);
+        } else {
+          throw new Error(data.error || "Falha ao iniciar download");
+        }
+      } catch (err) {
+        showErrorModal("Erro no Download", err.message);
+        document.getElementById("btnStartRemoteDownload").disabled = false;
+        document.getElementById("btnCancel").classList.add("hidden");
+      }
+    }
+
+    async function updateYtDlp() {
+      showToast("Verificando atualizações do yt-dlp...", "🔄");
+      try {
+        const resp = await fetch("/api/remote-download/update-bin", { method: "POST" });
+        const data = await resp.json();
+        if (data.success) {
+          showToast("yt-dlp atualizado / verificado!", "✅");
+          alert("yt-dlp: " + (data.message || "Atualizado com sucesso."));
+        } else {
+          showToast("Aviso ao atualizar yt-dlp", "⚠️");
+          alert("yt-dlp info: " + (data.message || data.error));
+        }
+      } catch (err) {
+        showToast("Erro ao contatar servidor", "❌");
       }
     }
 
