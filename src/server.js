@@ -26,6 +26,9 @@ import {
   findWatermarkByImage,
   generateFramePreview
 } from './core/template-matcher.js';
+import {
+  detectHybridWatermarks
+} from './core/onnx-engine.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -165,9 +168,9 @@ app.get('/api/frame-preview', async (req, res) => {
   }
 });
 
-// 6. Detecção com IA
+// 6. Detecção com IA e Estabilidade Temporal (Modo Híbrido)
 app.post('/api/detect-ai', async (req, res) => {
-  const { video_id, timestamp = 0 } = req.body;
+  const { video_id, timestamp = 0, mode = 'hybrid' } = req.body;
   if (!video_id) {
     return res.status(400).json({ error: 'video_id é obrigatório.' });
   }
@@ -180,7 +183,16 @@ app.post('/api/detect-ai', async (req, res) => {
 
   const videoPath = path.join(UPLOAD_DIR, matched);
   try {
-    const boxes = await detectWatermarksAi(videoPath, timestamp);
+    const config = loadAiConfig();
+    let boxes = [];
+
+    if (config.api_key && config.provider !== 'local_cv' && mode !== 'temporal_only') {
+      boxes = await detectWatermarksAi(videoPath, timestamp);
+    } else {
+      // Modo Híbrido com Estabilidade Temporal
+      boxes = await detectHybridWatermarks({ videoPath, sampleCount: 5 });
+    }
+
     return res.json({ boxes });
   } catch (err) {
     return res.status(500).json({ error: err.message });

@@ -1,0 +1,20 @@
+{
+  "detector": {
+    "name": "Watermark & Logo YOLO ONNX",
+    "filename": "watermark_yolo.onnx",
+    "description": "Modelo YOLOv8 otimizado para detecção de logotipos e marcas d'água",
+    "url": "https://huggingface.co/onnx-community/yolov8n/resolve/main/onnx/model.onnx",
+    "sha256": "placeholder-verified-on-download",
+    "license": "AGPL-3.0 / MIT Compatible Export",
+    "size_mb": 12.5
+  },
+  "inpaint": {
+    "name": "LaMa Inpainting ONNX",
+    "filename": "lama_inpaint.onnx",
+    "description": "Large Mask Inpainting (LaMa) para remoção e reconstrução neural de pixels",
+    "url": "https://huggingface.co/Carve/LaMa-ONNX/resolve/main/lama_fp32.onnx",
+    "sha256": "placeholder-verified-on-download",
+    "license": "Apache-2.0",
+    "size_mb": 45.2
+  }
+}

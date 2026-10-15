@@ -467,55 +467,194 @@
     });
 
     // Eventos do Mouse no Canvas para desenhar
-    canvas.addEventListener("mousedown", (e) => {
+    // Estado Interativo do Canvas (Desenho, Mover e Redimensionar Caixas)
+    let activeDragAction = null; // 'draw' | 'move' | 'resize-tl' | 'resize-tr' | 'resize-bl' | 'resize-br'
+    let selectedBoxIndex = -1;
+    let dragStartMouse = { x: 0, y: 0 };
+    let dragInitialBox = null;
+    const HANDLE_SIZE = 8;
+
+    function getBoxHandles(b, scaleX, scaleY) {
+      const bx = b.x * scaleX;
+      const by = b.y * scaleY;
+      const bw = b.w * scaleX;
+      const bh = b.h * scaleY;
+      const hHalf = HANDLE_SIZE / 2;
+
+      return {
+        bx, by, bw, bh,
+        tl: { x: bx - hHalf, y: by - hHalf, w: HANDLE_SIZE, h: HANDLE_SIZE, cursor: 'nwse-resize', type: 'resize-tl' },
+        tr: { x: bx + bw - hHalf, y: by - hHalf, w: HANDLE_SIZE, h: HANDLE_SIZE, cursor: 'nesw-resize', type: 'resize-tr' },
+        bl: { x: bx - hHalf, y: by + bh - hHalf, w: HANDLE_SIZE, h: HANDLE_SIZE, cursor: 'nesw-resize', type: 'resize-bl' },
+        br: { x: bx + bw - hHalf, y: by + bh - hHalf, w: HANDLE_SIZE, h: HANDLE_SIZE, cursor: 'nwse-resize', type: 'resize-br' }
+      };
+    }
+
+    function pointInRect(px, py, rx, ry, rw, rh) {
+      return px >= rx && px <= rx + rw && py >= ry && py <= ry + rh;
+    }
+
+    // Altera o cursor do mouse e detecta handles
+    canvas.addEventListener("mousemove", (e) => {
       const rect = canvas.getBoundingClientRect();
-      startX = e.clientX - rect.left;
-      startY = e.clientY - rect.top;
-      isDrawing = true;
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      if (!activeDragAction) {
+        if (!videoMeta || boxes.length === 0) {
+          canvas.style.cursor = "crosshair";
+          return;
+        }
+
+        const scaleX = canvas.width / videoMeta.width;
+        const scaleY = canvas.height / videoMeta.height;
+        let foundCursor = "crosshair";
+
+        for (let i = boxes.length - 1; i >= 0; i--) {
+          const handles = getBoxHandles(boxes[i], scaleX, scaleY);
+          if (pointInRect(mouseX, mouseY, handles.tl.x, handles.tl.y, handles.tl.w, handles.tl.h)) {
+            foundCursor = handles.tl.cursor; break;
+          }
+          if (pointInRect(mouseX, mouseY, handles.tr.x, handles.tr.y, handles.tr.w, handles.tr.h)) {
+            foundCursor = handles.tr.cursor; break;
+          }
+          if (pointInRect(mouseX, mouseY, handles.bl.x, handles.bl.y, handles.bl.w, handles.bl.h)) {
+            foundCursor = handles.bl.cursor; break;
+          }
+          if (pointInRect(mouseX, mouseY, handles.br.x, handles.br.y, handles.br.w, handles.br.h)) {
+            foundCursor = handles.br.cursor; break;
+          }
+          if (pointInRect(mouseX, mouseY, handles.bx, handles.by, handles.bw, handles.bh)) {
+            foundCursor = "move"; break;
+          }
+        }
+        canvas.style.cursor = foundCursor;
+        return;
+      }
+
+      // Executa arrasto em andamento
+      const deltaX = mouseX - dragStartMouse.x;
+      const deltaY = mouseY - dragStartMouse.y;
+      const scaleX = videoMeta.width / canvas.width;
+      const scaleY = videoMeta.height / canvas.height;
+
+      if (activeDragAction === "draw") {
+        redrawBoxes();
+        ctx.strokeStyle = "#00e5ff";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(startX, startY, mouseX - startX, mouseY - startY);
+        ctx.setLineDash([]);
+      } else if (activeDragAction === "move" && selectedBoxIndex >= 0) {
+        const box = boxes[selectedBoxIndex];
+        const newX = Math.max(0, Math.min(Math.round(dragInitialBox.x + deltaX * scaleX), videoMeta.width - dragInitialBox.w));
+        const newY = Math.max(0, Math.min(Math.round(dragInitialBox.y + deltaY * scaleY), videoMeta.height - dragInitialBox.h));
+        box.x = newX;
+        box.y = newY;
+        redrawBoxes();
+      } else if (activeDragAction.startsWith("resize-") && selectedBoxIndex >= 0) {
+        const box = boxes[selectedBoxIndex];
+        const dX = Math.round(deltaX * scaleX);
+        const dY = Math.round(deltaY * scaleY);
+
+        if (activeDragAction === "resize-br") {
+          box.w = Math.max(12, Math.min(dragInitialBox.w + dX, videoMeta.width - dragInitialBox.x));
+          box.h = Math.max(12, Math.min(dragInitialBox.h + dY, videoMeta.height - dragInitialBox.y));
+        } else if (activeDragAction === "resize-tl") {
+          const newX = Math.min(dragInitialBox.x + dX, dragInitialBox.x + dragInitialBox.w - 12);
+          const newY = Math.min(dragInitialBox.y + dY, dragInitialBox.y + dragInitialBox.h - 12);
+          box.w = dragInitialBox.w + (dragInitialBox.x - newX);
+          box.h = dragInitialBox.h + (dragInitialBox.y - newY);
+          box.x = Math.max(0, newX);
+          box.y = Math.max(0, newY);
+        } else if (activeDragAction === "resize-tr") {
+          const newY = Math.min(dragInitialBox.y + dY, dragInitialBox.y + dragInitialBox.h - 12);
+          box.w = Math.max(12, Math.min(dragInitialBox.w + dX, videoMeta.width - dragInitialBox.x));
+          box.h = dragInitialBox.h + (dragInitialBox.y - newY);
+          box.y = Math.max(0, newY);
+        } else if (activeDragAction === "resize-bl") {
+          const newX = Math.min(dragInitialBox.x + dX, dragInitialBox.x + dragInitialBox.w - 12);
+          box.w = dragInitialBox.w + (dragInitialBox.x - newX);
+          box.h = Math.max(12, Math.min(dragInitialBox.h + dY, videoMeta.height - dragInitialBox.y));
+          box.x = Math.max(0, newX);
+        }
+        redrawBoxes();
+      }
     });
 
-    canvas.addEventListener("mousemove", (e) => {
-      if (!isDrawing) return;
+    canvas.addEventListener("mousedown", (e) => {
       const rect = canvas.getBoundingClientRect();
-      const curX = e.clientX - rect.left;
-      const curY = e.clientY - rect.top;
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
 
-      redrawBoxes();
-      ctx.strokeStyle = "#00e5ff";
-      ctx.lineWidth = 2;
-      ctx.setLineDash([4, 4]);
-      ctx.strokeRect(startX, startY, curX - startX, curY - startY);
-      ctx.setLineDash([]);
+      dragStartMouse = { x: mouseX, y: mouseY };
+
+      if (videoMeta && boxes.length > 0) {
+        const scaleX = canvas.width / videoMeta.width;
+        const scaleY = canvas.height / videoMeta.height;
+
+        // Testa handles primeiro (prioridade para redimensionamento)
+        for (let i = boxes.length - 1; i >= 0; i--) {
+          const handles = getBoxHandles(boxes[i], scaleX, scaleY);
+          for (const hKey of ['tl', 'tr', 'bl', 'br']) {
+            const h = handles[hKey];
+            if (pointInRect(mouseX, mouseY, h.x, h.y, h.w, h.h)) {
+              activeDragAction = h.type;
+              selectedBoxIndex = i;
+              dragInitialBox = { ...boxes[i] };
+              return;
+            }
+          }
+          if (pointInRect(mouseX, mouseY, handles.bx, handles.by, handles.bw, handles.bh)) {
+            activeDragAction = "move";
+            selectedBoxIndex = i;
+            dragInitialBox = { ...boxes[i] };
+            return;
+          }
+        }
+      }
+
+      // Se clicou fora de qualquer caixa, inicia desenho de nova caixa
+      activeDragAction = "draw";
+      selectedBoxIndex = -1;
+      startX = mouseX;
+      startY = mouseY;
     });
 
     canvas.addEventListener("mouseup", (e) => {
-      if (!isDrawing) return;
-      isDrawing = false;
+      if (!activeDragAction) return;
+
       const rect = canvas.getBoundingClientRect();
       const endX = e.clientX - rect.left;
       const endY = e.clientY - rect.top;
 
-      const cX1 = Math.min(startX, endX);
-      const cY1 = Math.min(startY, endY);
-      const cW = Math.abs(endX - startX);
-      const cH = Math.abs(endY - startY);
+      if (activeDragAction === "draw" && videoMeta) {
+        const cX1 = Math.min(startX, endX);
+        const cY1 = Math.min(startY, endY);
+        const cW = Math.abs(endX - startX);
+        const cH = Math.abs(endY - startY);
 
-      if (cW > 8 && cH > 8 && videoMeta) {
-        const scaleX = videoMeta.width / canvas.width;
-        const scaleY = videoMeta.height / canvas.height;
+        if (cW > 8 && cH > 8) {
+          const scaleX = videoMeta.width / canvas.width;
+          const scaleY = videoMeta.height / canvas.height;
 
-        const newBox = {
-          id: boxes.length + 1,
-          x: Math.round(cX1 * scaleX),
-          y: Math.round(cY1 * scaleY),
-          w: Math.round(cW * scaleX),
-          h: Math.round(cH * scaleY),
-          name: `Marca #${boxes.length + 1}`
-        };
-        boxes.push(newBox);
-        updateBoxesList();
-        redrawBoxes();
+          const newBox = {
+            id: boxes.length + 1,
+            x: Math.round(cX1 * scaleX),
+            y: Math.round(cY1 * scaleY),
+            w: Math.round(cW * scaleX),
+            h: Math.round(cH * scaleY),
+            name: `Marca #${boxes.length + 1}`
+          };
+          boxes.push(newBox);
+        }
       }
+
+      activeDragAction = null;
+      selectedBoxIndex = -1;
+      dragInitialBox = null;
+      updateBoxesList();
+      redrawBoxes();
     });
 
     function redrawBoxes() {
@@ -524,7 +663,6 @@
 
       const scaleX = canvas.width / videoMeta.width;
       const scaleY = canvas.height / videoMeta.height;
-
       const colors = ["#ff3366", "#00e5ff", "#ffbb00", "#a033ff", "#33ff77"];
 
       boxes.forEach((b, i) => {
@@ -534,13 +672,34 @@
         const bh = b.h * scaleY;
         const color = colors[i % colors.length];
 
+        // Retângulo da Marca
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
         ctx.strokeRect(bx, by, bw, bh);
 
+        // Alças de Redimensionamento (Handles nos 4 cantos)
+        const hSize = 7;
+        const hOffset = hSize / 2;
+        ctx.fillStyle = "#ffffff";
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+
+        const corners = [
+          [bx - hOffset, by - hOffset],
+          [bx + bw - hOffset, by - hOffset],
+          [bx - hOffset, by + bh - hOffset],
+          [bx + bw - hOffset, by + bh - hOffset]
+        ];
+
+        corners.forEach(([cx, cy]) => {
+          ctx.fillRect(cx, cy, hSize, hSize);
+          ctx.strokeRect(cx, cy, hSize, hSize);
+        });
+
+        // Etiqueta com Nome e Dimensões
         ctx.fillStyle = color;
         ctx.font = "bold 11px Outfit, sans-serif";
-        ctx.fillText(b.name || `Marca #${i+1}`, bx + 4, by - 4 > 10 ? by - 4 : by + 14);
+        ctx.fillText(b.name || `Marca #${i+1}`, bx + 4, by - 5 > 10 ? by - 5 : by + 14);
       });
     }
 
