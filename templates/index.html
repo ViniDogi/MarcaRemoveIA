@@ -6,7 +6,16 @@
   <title>MarcaRemoveIA - Removedor Inteligente de Marca d'Água de Vídeo</title>
   <!-- Tailwind CSS via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
+    body {
+      font-family: 'Outfit', sans-serif;
+    }
+    .font-mono-code {
+      font-family: 'JetBrains Mono', monospace;
+    }
     .canvas-container {
       position: relative;
       user-select: none;
@@ -19,45 +28,61 @@
     }
   </style>
 </head>
-<body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col font-sans">
+<body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col font-sans selection:bg-cyan-500 selection:text-black">
 
   <!-- Header -->
-  <header class="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between shadow-lg">
+  <header class="bg-gray-900/90 backdrop-blur-md border-b border-gray-800 px-6 py-3.5 flex items-center justify-between shadow-lg sticky top-0 z-40">
     <div class="flex items-center space-x-3">
-      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-cyan-400 flex items-center justify-center font-black text-xl shadow-cyan-500/20 shadow-md">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 via-indigo-500 to-cyan-400 flex items-center justify-center font-black text-xl shadow-cyan-500/20 shadow-lg text-white">
         MR
       </div>
       <div>
         <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-          MarcaRemoveIA <span class="text-xs bg-cyan-900/60 text-cyan-300 font-semibold px-2 py-0.5 rounded-full border border-cyan-700/50">Web Edition</span>
+          MarcaRemoveIA <span class="text-[11px] bg-cyan-950 text-cyan-300 font-semibold px-2.5 py-0.5 rounded-full border border-cyan-800/60">Node.js Universal</span>
         </h1>
-        <p class="text-xs text-gray-400">Remoção de marca d'água com IA generativa e aceleração nativa</p>
+        <p class="text-xs text-gray-400">Remoção de marca d'água com IA generativa e aceleração universal</p>
       </div>
     </div>
-    <div class="flex items-center space-x-4">
-      <button onclick="openConfigModal()" class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-1.5 rounded-lg border border-gray-700 transition flex items-center gap-1.5">
-        ⚙️ Configurar API de IA
+    <div class="flex items-center space-x-3">
+      <!-- Hardware Badge -->
+      <div id="hwStatusBadge" class="hidden sm:flex items-center gap-1.5 text-xs bg-gray-950/80 text-cyan-300 px-3 py-1.5 rounded-xl border border-gray-800 font-medium">
+        <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+        <span id="hwStatusText">Detectando hardware...</span>
+      </div>
+
+      <button onclick="openConfigModal()" class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 px-3.5 py-2 rounded-xl border border-gray-700 transition flex items-center gap-1.5 shadow-sm">
+        ⚙️ Configurar IA
       </button>
-      <span class="text-xs text-emerald-400 font-medium bg-emerald-950/60 px-2.5 py-1 rounded-full border border-emerald-800/40">
-        ● Servidor Ativo
+
+      <span class="text-xs text-emerald-400 font-medium bg-emerald-950/60 px-3 py-1.5 rounded-xl border border-emerald-800/40 flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Servidor Ativo
       </span>
     </div>
   </header>
 
+  <!-- Banner de Aviso se FFmpeg não for encontrado -->
+  <div id="ffmpegAlertBanner" class="hidden bg-amber-500/10 border-b border-amber-500/30 px-6 py-3 text-xs text-amber-200 flex items-center justify-between">
+    <div class="flex items-center gap-2.5">
+      <span class="text-base">⚠️</span>
+      <span id="ffmpegAlertText">FFmpeg não foi detectado no sistema. Por favor instale executando: <code>winget install Gyan.FFmpeg</code></span>
+    </div>
+    <button onclick="dismissFfmpegBanner()" class="text-amber-400 hover:text-white font-bold text-sm px-2">&times;</button>
+  </div>
+
   <!-- Main Content -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
 
     <!-- Coluna Esquerda: Controles -->
-    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 flex flex-col space-y-5 shadow-xl">
+    <div class="bg-gray-900/90 backdrop-blur border border-gray-800/90 rounded-2xl p-5 sm:p-6 flex flex-col space-y-4 shadow-xl">
       
       <!-- Upload Zone -->
       <div>
         <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">1. Selecionar Vídeo</label>
-        <div id="dropZone" onclick="document.getElementById('fileInput').click()" class="border-2 border-dashed border-gray-700 hover:border-cyan-500 rounded-xl p-5 text-center cursor-pointer bg-gray-950/50 hover:bg-cyan-950/10 transition">
+        <div id="dropZone" onclick="document.getElementById('fileInput').click()" class="border-2 border-dashed border-gray-700 hover:border-cyan-500 rounded-xl p-4 sm:p-5 text-center cursor-pointer bg-gray-950/50 hover:bg-cyan-950/10 transition group">
           <input type="file" id="fileInput" accept="video/*" class="hidden" onchange="handleFileUpload(this.files[0])">
-          <div class="text-3xl mb-2">📹</div>
+          <div class="text-3xl mb-1.5 group-hover:scale-110 transition-transform">📹</div>
           <p class="text-sm font-medium text-gray-200">Arraste um vídeo aqui ou clique</p>
-          <p class="text-xs text-gray-500 mt-1">MP4, MKV, AVI, MOV ou WebM</p>
+          <p class="text-xs text-gray-500 mt-0.5">MP4, MKV, AVI, MOV ou WebM</p>
         </div>
       </div>
 
@@ -67,7 +92,7 @@
           <span>Arquivo:</span> <span id="infoName" class="text-gray-200 font-semibold truncate max-w-[170px]"></span>
         </div>
         <div class="flex justify-between text-gray-400">
-          <span>Resolução:</span> <span id="infoRes" class="text-gray-200 font-mono"></span>
+          <span>Resolução:</span> <span id="infoRes" class="text-cyan-300 font-mono-code"></span>
         </div>
         <div class="flex justify-between text-gray-400">
           <span>Duração:</span> <span id="infoDur" class="text-gray-200"></span>
@@ -77,9 +102,12 @@
         </div>
       </div>
 
-      <!-- Detecção com IA -->
+      <!-- Identificação de Marcas -->
       <div>
-        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">2. Identificar Marcas</label>
+        <div class="flex justify-between items-center mb-2">
+          <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">2. Marcar Áreas</label>
+          <span class="text-[11px] text-gray-500">Desenhe retângulos no vídeo</span>
+        </div>
         <div class="grid grid-cols-2 gap-2">
           <button id="btnAiDetect" onclick="detectWithAI()" disabled class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs py-2.5 px-3 rounded-xl transition shadow flex items-center justify-center gap-1.5">
             ✨ Detectar com IA
@@ -90,31 +118,36 @@
         </div>
       </div>
 
-      <!-- Lista de Regiões -->
+      <!-- Lista de Regiões Selecionadas -->
       <div>
         <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Regiões Selecionadas (<span id="boxCount">0</span>)</label>
-        <div id="boxesList" class="max-h-32 overflow-y-auto space-y-1.5 bg-gray-950/60 border border-gray-800 rounded-xl p-2 text-xs text-gray-400">
+        <div id="boxesList" class="max-h-28 overflow-y-auto space-y-1.5 bg-gray-950/60 border border-gray-800 rounded-xl p-2 text-xs text-gray-400">
           <p class="text-center py-2 text-gray-600">Nenhuma região marcada.</p>
         </div>
       </div>
 
-      <!-- Configurações do Motor -->
+      <!-- Configurações de Aceleração de Hardware -->
       <div>
-        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">3. Motor de Inpainting</label>
-        <select id="engineSelect" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-cyan-500">
-          <option value="ai_generative">✨ IA Generativa (Reconstrução 100% Pixels)</option>
-          <option value="gpu_nvenc">⚡ GPU NVIDIA NVENC (Ultra Rápido)</option>
-          <option value="cpu_delogo">🖥️ CPU FFmpeg (Delogo)</option>
-          <option value="opencv_telea">🎨 OpenCV Telea</option>
-          <option value="opencv_ns">🌊 OpenCV Navier-Stokes</option>
+        <div class="flex justify-between items-center mb-1.5">
+          <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">3. Aceleração de Hardware</label>
+          <span id="activeEncoderLabel" class="text-[11px] text-cyan-400 font-medium">Detectando...</span>
+        </div>
+        <select id="hwAccelSelect" onchange="onHwAccelChange()" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-cyan-500">
+          <option value="auto">Automático (Mais rápido detectado com fallback)</option>
+          <option value="h264_nvenc">NVIDIA (NVENC)</option>
+          <option value="h264_qsv">Intel (QuickSync)</option>
+          <option value="h264_amf">AMD (AMF - Windows)</option>
+          <option value="h264_videotoolbox">Apple (VideoToolbox)</option>
+          <option value="libx264">CPU Universal (libx264 - Sempre Funciona)</option>
         </select>
+        <p class="text-[11px] text-gray-500 mt-1">Fallback automático ativado: se o hardware falhar, recorre à CPU sem interrupção.</p>
       </div>
 
       <!-- Opções Adicionais: Áudio & Upscale Full HD -->
-      <div class="space-y-2 pt-1">
+      <div class="space-y-2 pt-1 border-t border-gray-800/80">
         <label class="flex items-center space-x-2 text-xs text-gray-300 cursor-pointer">
           <input type="checkbox" id="chkKeepAudio" checked class="rounded bg-gray-950 border-gray-700 text-cyan-500 focus:ring-0">
-          <span>Preservar Áudio Original</span>
+          <span>Preservar Áudio Original (AAC Universal)</span>
         </label>
         <label class="flex items-center space-x-2 text-xs text-cyan-300 font-semibold cursor-pointer">
           <input type="checkbox" id="chkUpscale" class="rounded bg-gray-950 border-gray-700 text-cyan-500 focus:ring-0">
@@ -122,41 +155,52 @@
         </label>
       </div>
 
-      <!-- Botão de Iniciar -->
-      <div class="pt-2">
-        <button id="btnProcess" onclick="startProcessing()" disabled class="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm py-3 px-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2">
-          🚀 Iniciar Remoção com IA
+      <!-- Botões de Ação -->
+      <div class="pt-2 flex flex-col space-y-2">
+        <button id="btnProcess" onclick="startProcessing()" disabled class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm py-3 px-4 rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+          🚀 Iniciar Remoção da Marca d'Água
+        </button>
+        <button id="btnCancel" onclick="cancelProcessing()" class="hidden w-full bg-red-950/70 hover:bg-red-900 border border-red-800/80 text-red-300 font-semibold text-xs py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5">
+          🛑 Cancelar Processamento
         </button>
       </div>
 
     </div>
 
     <!-- Coluna Direita: Player e Canvas Interativo -->
-    <div class="lg:col-span-2 bg-gray-900 border border-gray-800 rounded-2xl p-6 flex flex-col justify-between shadow-xl">
+    <div class="lg:col-span-2 bg-gray-900/90 backdrop-blur border border-gray-800/90 rounded-2xl p-5 sm:p-6 flex flex-col justify-between shadow-xl">
       
       <!-- Container do Vídeo e Canvas -->
-      <div class="flex-1 flex flex-col items-center justify-center min-h-[360px] bg-black/60 rounded-xl border border-gray-800/80 p-2 overflow-hidden">
-        <div id="canvasWrapper" class="canvas-container max-w-full">
-          <video id="videoPreview" controls class="max-h-[460px] max-w-full rounded-lg hidden" onloadedmetadata="initCanvas()"></video>
+      <div class="flex-1 flex flex-col items-center justify-center min-h-[380px] bg-black/70 rounded-xl border border-gray-800/80 p-2 overflow-hidden relative">
+        <div id="canvasWrapper" class="canvas-container max-w-full flex items-center justify-center">
+          <video id="videoPreview" controls class="max-h-[460px] max-w-full rounded-lg hidden shadow-2xl" onloadedmetadata="initCanvas()"></video>
           <canvas id="drawCanvas"></canvas>
           <div id="placeholderPreview" class="text-center py-24 text-gray-600">
-            <span class="text-5xl block mb-3">🎬</span>
-            <p class="text-sm font-medium">Carregue um vídeo para visualizar os quadros</p>
+            <span class="text-5xl block mb-3 animate-bounce">🎬</span>
+            <p class="text-sm font-medium text-gray-400">Carregue um vídeo para visualizar os quadros</p>
+            <p class="text-xs text-gray-600 mt-1">Você poderá arrastar retângulos sobre as marcas d'água</p>
           </div>
         </div>
       </div>
 
-      <!-- Barra de Progresso e Notificação -->
-      <div class="mt-4 pt-4 border-t border-gray-800/80 space-y-2">
-        <div class="flex justify-between text-xs text-gray-400">
-          <span id="statusText">Aguardando vídeo...</span>
-          <span id="progressPercent" class="font-bold text-cyan-400">0%</span>
+      <!-- Barra de Progresso e Métricas em Tempo Real -->
+      <div class="mt-4 pt-4 border-t border-gray-800/80 space-y-2.5">
+        <div class="flex justify-between items-center text-xs text-gray-400">
+          <span id="statusText" class="truncate max-w-[70%]">Aguardando vídeo...</span>
+          <div class="flex items-center gap-2">
+            <span id="metricFps" class="hidden text-gray-500 font-mono-code text-[11px]"></span>
+            <span id="metricEta" class="hidden text-gray-500 font-mono-code text-[11px]"></span>
+            <span id="progressPercent" class="font-bold text-cyan-400 font-mono-code text-sm">0%</span>
+          </div>
         </div>
-        <div class="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden">
-          <div id="progressBar" class="bg-gradient-to-r from-cyan-500 to-emerald-400 h-2.5 rounded-full transition-all duration-200" style="width: 0%"></div>
+        <div class="w-full bg-gray-800 rounded-full h-3 overflow-hidden p-0.5 border border-gray-700/50">
+          <div id="progressBar" class="bg-gradient-to-r from-cyan-500 via-indigo-400 to-emerald-400 h-2 rounded-full transition-all duration-200" style="width: 0%"></div>
         </div>
-        <div id="downloadArea" class="hidden pt-2 flex justify-end">
-          <a id="btnDownload" href="#" download class="bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold text-xs py-2 px-4 rounded-xl shadow-md transition flex items-center gap-1.5">
+        <div id="downloadArea" class="hidden pt-2 flex justify-between items-center">
+          <span class="text-xs text-emerald-400 font-medium flex items-center gap-1.5">
+            ✅ Vídeo limpo gerado com sucesso!
+          </span>
+          <a id="btnDownload" href="#" download class="bg-gradient-to-r from-cyan-500 to-emerald-400 hover:from-cyan-400 hover:to-emerald-300 text-gray-950 font-bold text-xs py-2.5 px-4 rounded-xl shadow-lg transition flex items-center gap-1.5">
             📥 Baixar Vídeo Sem Marca d'Água
           </a>
         </div>
@@ -166,24 +210,25 @@
 
   </main>
 
-  <!-- Modal de Configuração de API -->
+  <!-- Modal de Configuração de API de IA -->
   <div id="configModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
     <div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
       <div class="flex justify-between items-center border-b border-gray-800 pb-3">
-        <h3 class="font-bold text-white text-base">⚙️ Configurações da API de IA</h3>
-        <button onclick="closeConfigModal()" class="text-gray-400 hover:text-white font-bold text-lg">&times;</button>
+        <h3 class="font-bold text-white text-base flex items-center gap-2">⚙️ Configurações da API de IA</h3>
+        <button onclick="closeConfigModal()" class="text-gray-400 hover:text-white font-bold text-xl">&times;</button>
       </div>
       <div>
         <label class="block text-xs font-semibold text-gray-400 mb-1">Provedor de IA:</label>
         <select id="modalProvider" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-xs text-gray-200">
           <option value="gemini">Google Gemini (Gratuito com Chave)</option>
           <option value="openai">OpenAI GPT-4o Vision</option>
-          <option value="local_cv">Visão Computacional Local (Sem Chave / Offline)</option>
+          <option value="local_cv">Visão Computacional Local (Offline / Sem Chave)</option>
         </select>
       </div>
       <div>
         <label class="block text-xs font-semibold text-gray-400 mb-1">Chave de API:</label>
         <input type="password" id="modalApiKey" placeholder="Cole sua chave de API..." class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-xs text-gray-200">
+        <span id="modalMaskedKey" class="text-[11px] text-gray-500 block mt-1"></span>
       </div>
       <p class="text-xs text-gray-500 leading-relaxed">
         Com a chave do Google Gemini configurada, a IA detecta automaticamente marcas d'água translúcidas e logotipos em qualquer frame do vídeo.
@@ -195,20 +240,120 @@
     </div>
   </div>
 
-  <!-- Script da Aplicação Web -->
+  <!-- Modal de Erro com 2 Camadas (Substitui o alert tradicional) -->
+  <div id="errorModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-gray-900 border border-red-900/60 rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-4">
+      
+      <!-- Camada 1: Resumo Amigável -->
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-xl bg-red-950/80 border border-red-800/80 flex items-center justify-center text-red-400 text-xl flex-shrink-0">
+          ⚠️
+        </div>
+        <div class="flex-1">
+          <h3 id="errorModalTitle" class="font-bold text-white text-base">Não foi possível concluir o processamento</h3>
+          <p id="errorModalMessage" class="text-xs text-gray-300 mt-1 leading-relaxed">
+            Ocorreu um erro durante a codificação do vídeo.
+          </p>
+        </div>
+      </div>
+
+      <!-- Camada 2: Detalhes Técnicos (Colapsável) -->
+      <div class="border border-gray-800 rounded-xl overflow-hidden bg-gray-950/70">
+        <button onclick="toggleErrorDetails()" class="w-full text-left px-3.5 py-2.5 text-xs text-cyan-400 hover:text-cyan-300 font-medium flex justify-between items-center transition bg-gray-900/40">
+          <span>🔍 Ver detalhes técnicos (Log do FFmpeg)</span>
+          <span id="errorDetailsArrow">▼</span>
+        </button>
+        <div id="errorDetailsContent" class="hidden p-3 border-t border-gray-800/80">
+          <pre id="errorLogPre" class="text-[11px] text-gray-400 font-mono-code max-h-48 overflow-y-auto whitespace-pre-wrap select-all">Carregando detalhes do log...</pre>
+          <div class="mt-2 flex justify-end">
+            <button onclick="copyErrorLog()" class="text-[11px] bg-gray-800 hover:bg-gray-700 text-gray-300 px-2.5 py-1 rounded-lg border border-gray-700 transition">
+              📋 Copiar Log
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-1">
+        <button onclick="closeErrorModal()" class="bg-gray-800 hover:bg-gray-700 text-gray-200 font-semibold text-xs py-2 px-5 rounded-xl border border-gray-700 transition">
+          Fechar
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Toast de Notificação Suave -->
+  <div id="toastNotification" class="fixed bottom-6 right-6 bg-gray-900 border border-gray-700 text-gray-100 text-xs px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+    <span id="toastIcon">ℹ️</span>
+    <span id="toastMessage">Notificação</span>
+  </div>
+
+  <!-- Script da Aplicação Web em JavaScript Puro -->
   <script>
     let currentVideoId = null;
     let videoMeta = null;
     let boxes = [];
     let isDrawing = false;
     let startX = 0, startY = 0;
-    let taskId = null;
+    let activeTaskId = null;
+    let activeEventSource = null;
     let pollInterval = null;
+    let detectedHardware = null;
 
     const video = document.getElementById("videoPreview");
     const canvas = document.getElementById("drawCanvas");
     const ctx = canvas.getContext("2d");
 
+    // Inicialização da Página
+    window.addEventListener("DOMContentLoaded", async () => {
+      await loadHardwareInfo();
+    });
+
+    async function loadHardwareInfo() {
+      try {
+        const resp = await fetch("/api/hardware");
+        const data = await resp.json();
+        detectedHardware = data;
+
+        if (!data.ffmpegInstalled) {
+          const banner = document.getElementById("ffmpegAlertBanner");
+          banner.classList.remove("hidden");
+          if (data.instruction) {
+            document.getElementById("ffmpegAlertText").innerText = data.instruction;
+          }
+        }
+
+        const primary = data.primaryEncoder || 'libx264';
+        const label = (data.encoderLabels || []).find(e => e.id === primary)?.label || primary;
+        
+        document.getElementById("hwStatusText").innerText = label;
+        document.getElementById("activeEncoderLabel").innerText = `Ativo: ${primary}`;
+        document.getElementById("hwStatusBadge").classList.remove("hidden");
+      } catch (err) {
+        console.warn("Aviso ao carregar dados de hardware:", err);
+      }
+    }
+
+    function dismissFfmpegBanner() {
+      document.getElementById("ffmpegAlertBanner").classList.add("hidden");
+    }
+
+    function onHwAccelChange() {
+      const selected = document.getElementById("hwAccelSelect").value;
+      document.getElementById("activeEncoderLabel").innerText = selected === 'auto' ? 'Automático' : selected;
+    }
+
+    function showToast(message, icon = "ℹ️") {
+      const toast = document.getElementById("toastNotification");
+      document.getElementById("toastIcon").innerText = icon;
+      document.getElementById("toastMessage").innerText = message;
+      toast.classList.remove("translate-y-20", "opacity-0");
+      setTimeout(() => {
+        toast.classList.add("translate-y-20", "opacity-0");
+      }, 3500);
+    }
+
+    // Upload de Vídeo
     async function handleFileUpload(file) {
       if (!file) return;
       document.getElementById("statusText").innerText = "Enviando vídeo para o servidor...";
@@ -219,6 +364,7 @@
       try {
         const resp = await fetch("/api/upload", { method: "POST", body: formData });
         const data = await resp.json();
+
         if (data.success) {
           currentVideoId = data.video_id;
           videoMeta = data.metadata;
@@ -235,13 +381,17 @@
 
           document.getElementById("btnAiDetect").disabled = false;
           document.getElementById("btnProcess").disabled = false;
-          document.getElementById("statusText").innerText = "Vídeo carregado. Selecione a marca d'água.";
+          document.getElementById("statusText").innerText = "Vídeo carregado com sucesso. Marque a marca d'água.";
+          showToast("Vídeo pronto para edição!", "📹");
+        } else {
+          showErrorModal("Erro ao carregar vídeo", data.error || "Formato inválido.");
         }
       } catch (err) {
-        alert("Erro ao enviar vídeo: " + err);
+        showErrorModal("Falha na conexão", "Não foi possível enviar o vídeo: " + err.message);
       }
     }
 
+    // Inicialização do Canvas
     function initCanvas() {
       canvas.width = video.clientWidth;
       canvas.height = video.clientHeight;
@@ -256,7 +406,7 @@
       }
     });
 
-    // Eventos do Mouse para desenhar
+    // Eventos do Mouse no Canvas para desenhar
     canvas.addEventListener("mousedown", (e) => {
       const rect = canvas.getBoundingClientRect();
       startX = e.clientX - rect.left;
@@ -290,8 +440,7 @@
       const cW = Math.abs(endX - startX);
       const cH = Math.abs(endY - startY);
 
-      if (cW > 8 && cH > 8) {
-        // Converte para coordenadas originais do vídeo
+      if (cW > 8 && cH > 8 && videoMeta) {
         const scaleX = videoMeta.width / canvas.width;
         const scaleY = videoMeta.height / canvas.height;
 
@@ -311,22 +460,27 @@
 
     function redrawBoxes() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (!videoMeta) return;
+
       const scaleX = canvas.width / videoMeta.width;
       const scaleY = canvas.height / videoMeta.height;
+
+      const colors = ["#ff3366", "#00e5ff", "#ffbb00", "#a033ff", "#33ff77"];
 
       boxes.forEach((b, i) => {
         const bx = b.x * scaleX;
         const by = b.y * scaleY;
         const bw = b.w * scaleX;
         const bh = b.h * scaleY;
+        const color = colors[i % colors.length];
 
-        ctx.strokeStyle = "#ff3366";
+        ctx.strokeStyle = color;
         ctx.lineWidth = 2;
         ctx.strokeRect(bx, by, bw, bh);
 
-        ctx.fillStyle = "#ff3366";
-        ctx.font = "bold 11px sans-serif";
-        ctx.fillText(b.name || `Marca #${i+1}`, bx + 4, by - 4 > 10 ? by - 4 : by + 12);
+        ctx.fillStyle = color;
+        ctx.font = "bold 11px Outfit, sans-serif";
+        ctx.fillText(b.name || `Marca #${i+1}`, bx + 4, by - 4 > 10 ? by - 4 : by + 14);
       });
     }
 
@@ -342,7 +496,7 @@
         const item = document.createElement("div");
         item.className = "flex justify-between items-center bg-gray-900 px-2.5 py-1.5 rounded-lg border border-gray-800";
         item.innerHTML = `
-          <span>${b.name} (${b.w}x${b.h})</span>
+          <span class="truncate">${b.name} (${b.w}x${b.h})</span>
           <button onclick="removeBox(${b.id})" class="text-red-400 hover:text-red-300 font-bold px-1">&times;</button>
         `;
         container.appendChild(item);
@@ -361,9 +515,10 @@
       redrawBoxes();
     }
 
+    // Detecção com IA
     async function detectWithAI() {
       if (!currentVideoId) return;
-      document.getElementById("statusText").innerText = "🤖 IA analisando frame em busca de marcas...";
+      document.getElementById("statusText").innerText = "🤖 IA analisando frame em busca de marcas d'água...";
       document.getElementById("btnAiDetect").disabled = true;
 
       const currentTime = video.currentTime || 0;
@@ -375,34 +530,41 @@
           body: JSON.stringify({ video_id: currentVideoId, timestamp: currentTime })
         });
         const data = await resp.json();
+
         if (data.boxes && data.boxes.length > 0) {
           data.boxes.forEach(b => boxes.push(b));
           updateBoxesList();
           redrawBoxes();
-          document.getElementById("statusText").innerText = `✅ IA identificou ${data.boxes.length} marca(s) d'água!`;
+          document.getElementById("statusText").innerText = `✅ IA identificou ${data.boxes.length} região(ões)!`;
+          showToast(`${data.boxes.length} marca(s) detectada(s)!`, "✨");
         } else {
-          document.getElementById("statusText").innerText = "Nenhuma marca óbvia detectada. Marque manualmente.";
+          document.getElementById("statusText").innerText = "Nenhuma marca óbvia encontrada neste frame. Desenhe no vídeo.";
+          showToast("Nenhuma marca encontrada no quadro atual.", "ℹ️");
         }
       } catch (err) {
-        alert("Erro na detecção por IA: " + err);
+        showErrorModal("Erro na Detecção", "Falha na análise por IA: " + err.message);
       } finally {
         document.getElementById("btnAiDetect").disabled = false;
       }
     }
 
+    // Início do Processamento com SSE (Server-Sent Events)
     async function startProcessing() {
       if (!currentVideoId || boxes.length === 0) {
-        alert("Marque pelo menos uma marca d'água antes de iniciar!");
+        showToast("Selecione pelo menos uma região no vídeo!", "⚠️");
         return;
       }
 
-      const engine = document.getElementById("engineSelect").value;
+      const engine = document.getElementById("hwAccelSelect").value;
       const keepAudio = document.getElementById("chkKeepAudio").checked;
       const upscaleFullhd = document.getElementById("chkUpscale").checked;
 
       document.getElementById("btnProcess").disabled = true;
+      document.getElementById("btnCancel").classList.remove("hidden");
       document.getElementById("downloadArea").classList.add("hidden");
       document.getElementById("statusText").innerText = "Iniciando processamento no servidor...";
+      document.getElementById("progressBar").style.width = "0%";
+      document.getElementById("progressPercent").innerText = "0%";
 
       try {
         const resp = await fetch("/api/process", {
@@ -417,46 +579,188 @@
           })
         });
         const data = await resp.json();
+
         if (data.task_id) {
-          taskId = data.task_id;
-          pollInterval = setInterval(checkProgress, 1000);
+          activeTaskId = data.task_id;
+          setupSseStream(activeTaskId);
+        } else {
+          throw new Error(data.error || "Falha ao iniciar tarefa");
         }
       } catch (err) {
-        alert("Erro ao iniciar processamento: " + err);
+        showErrorModal("Erro ao Iniciar", err.message);
         document.getElementById("btnProcess").disabled = false;
+        document.getElementById("btnCancel").classList.add("hidden");
       }
     }
 
-    async function checkProgress() {
+    // Escuta SSE com Fallback para Polling
+    function setupSseStream(taskId) {
+      if (activeEventSource) {
+        activeEventSource.close();
+      }
+
+      const sseUrl = `/api/progress/${taskId}/stream`;
+      let sseFailed = false;
+
+      try {
+        activeEventSource = new EventSource(sseUrl);
+
+        activeEventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            handleProgressUpdate(data);
+          } catch (e) {
+            console.error("Erro ao parsear dados SSE:", e);
+          }
+        };
+
+        activeEventSource.onerror = () => {
+          if (!sseFailed) {
+            sseFailed = true;
+            if (activeEventSource) activeEventSource.close();
+            // Fallback para polling a cada 1000ms
+            pollInterval = setInterval(() => checkProgressPolling(taskId), 1000);
+          }
+        };
+      } catch {
+        pollInterval = setInterval(() => checkProgressPolling(taskId), 1000);
+      }
+    }
+
+    async function checkProgressPolling(taskId) {
       if (!taskId) return;
       try {
         const resp = await fetch(`/api/progress/${taskId}`);
         const data = await resp.json();
-
-        const pct = Math.round(data.progress * 100);
-        document.getElementById("progressBar").style.width = pct + "%";
-        document.getElementById("progressPercent").innerText = pct + "%";
-        document.getElementById("statusText").innerText = data.status || `Processando: ${pct}%`;
-
-        if (data.done) {
-          clearInterval(pollInterval);
-          document.getElementById("btnProcess").disabled = false;
-          document.getElementById("downloadArea").classList.remove("hidden");
-          document.getElementById("btnDownload").href = `/api/download/${taskId}`;
-          document.getElementById("statusText").innerText = "✅ Concluído! Clique em Baixar.";
-        } else if (data.error) {
-          clearInterval(pollInterval);
-          document.getElementById("btnProcess").disabled = false;
-          alert("Erro no processamento: " + data.error);
-        }
+        handleProgressUpdate(data);
       } catch (err) {
-        console.error("Erro no polling: ", err);
+        console.error("Erro no polling:", err);
       }
     }
 
-    function openConfigModal() {
+    function handleProgressUpdate(data) {
+      const pct = Math.round((data.progress || 0) * 100);
+      document.getElementById("progressBar").style.width = pct + "%";
+      document.getElementById("progressPercent").innerText = pct + "%";
+      document.getElementById("statusText").innerText = data.status || `Processando: ${pct}%`;
+
+      if (data.fps) {
+        document.getElementById("metricFps").innerText = `${data.fps} fps`;
+        document.getElementById("metricFps").classList.remove("hidden");
+      }
+      if (data.eta && data.eta !== '--:--:--') {
+        document.getElementById("metricEta").innerText = `ETA: ${data.eta}`;
+        document.getElementById("metricEta").classList.remove("hidden");
+      }
+      if (data.encoderInUse) {
+        document.getElementById("activeEncoderLabel").innerText = `Uso: ${data.encoderInUse}`;
+      }
+
+      if (data.done) {
+        finishProcessing();
+        document.getElementById("downloadArea").classList.remove("hidden");
+        document.getElementById("btnDownload").href = `/api/download/${data.taskId || activeTaskId}`;
+        document.getElementById("statusText").innerText = "✅ Concluído! Clique em Baixar.";
+        showToast("Vídeo concluído com sucesso!", "🎉");
+      } else if (data.cancelled) {
+        finishProcessing();
+        document.getElementById("statusText").innerText = "Processamento cancelado.";
+        showToast("Processamento cancelado.", "🛑");
+      } else if (data.error) {
+        finishProcessing();
+        showErrorModal("Erro no processamento do vídeo", data.error, activeTaskId);
+      }
+    }
+
+    function finishProcessing() {
+      if (activeEventSource) {
+        activeEventSource.close();
+        activeEventSource = null;
+      }
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+      document.getElementById("btnProcess").disabled = false;
+      document.getElementById("btnCancel").classList.add("hidden");
+    }
+
+    // Cancelar Tarefa Ativa
+    async function cancelProcessing() {
+      if (!activeTaskId) return;
+      document.getElementById("statusText").innerText = "Enviando solicitação de cancelamento...";
+      try {
+        await fetch(`/api/cancel/${activeTaskId}`, { method: "POST" });
+        showToast("Cancelamento solicitado...", "🛑");
+      } catch (err) {
+        console.error("Erro ao cancelar:", err);
+      }
+    }
+
+    // Modal de Erro com 2 Camadas
+    let currentErrorTaskId = null;
+    function showErrorModal(title, friendlyMsg, taskId = null) {
+      currentErrorTaskId = taskId;
+      document.getElementById("errorModalTitle").innerText = title;
+      document.getElementById("errorModalMessage").innerText = friendlyMsg;
+
+      // Reseta camada técnica
+      document.getElementById("errorDetailsContent").classList.add("hidden");
+      document.getElementById("errorDetailsArrow").innerText = "▼";
+      document.getElementById("errorLogPre").innerText = taskId ? "Clique para carregar o log do FFmpeg..." : friendlyMsg;
+
+      document.getElementById("errorModal").classList.remove("hidden");
+    }
+
+    function closeErrorModal() {
+      document.getElementById("errorModal").classList.add("hidden");
+    }
+
+    async function toggleErrorDetails() {
+      const content = document.getElementById("errorDetailsContent");
+      const isHidden = content.classList.contains("hidden");
+
+      if (isHidden) {
+        content.classList.remove("hidden");
+        document.getElementById("errorDetailsArrow").innerText = "▲";
+
+        if (currentErrorTaskId) {
+          document.getElementById("errorLogPre").innerText = "Carregando log do servidor...";
+          try {
+            const resp = await fetch(`/api/logs/${currentErrorTaskId}`);
+            const data = await resp.json();
+            document.getElementById("errorLogPre").innerText = data.log || "Log vazio ou não disponível.";
+          } catch (e) {
+            document.getElementById("errorLogPre").innerText = "Erro ao buscar arquivo de log: " + e.message;
+          }
+        }
+      } else {
+        content.classList.add("hidden");
+        document.getElementById("errorDetailsArrow").innerText = "▼";
+      }
+    }
+
+    function copyErrorLog() {
+      const text = document.getElementById("errorLogPre").innerText;
+      navigator.clipboard.writeText(text);
+      showToast("Log copiado para a área de transferência!", "📋");
+    }
+
+    // Modal de Configuração de IA
+    async function openConfigModal() {
+      try {
+        const resp = await fetch("/api/config");
+        const data = await resp.json();
+        document.getElementById("modalProvider").value = data.provider || "gemini";
+        if (data.masked_key) {
+          document.getElementById("modalMaskedKey").innerText = `Chave configurada: ${data.masked_key}`;
+        } else {
+          document.getElementById("modalMaskedKey").innerText = "Nenhuma chave salva.";
+        }
+      } catch {}
       document.getElementById("configModal").classList.remove("hidden");
     }
+
     function closeConfigModal() {
       document.getElementById("configModal").classList.add("hidden");
     }
@@ -464,13 +768,15 @@
     async function saveConfig() {
       const provider = document.getElementById("modalProvider").value;
       const apiKey = document.getElementById("modalApiKey").value;
+
       await fetch("/api/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ provider, api_key: apiKey })
       });
+
       closeConfigModal();
-      alert("Configuração de IA salva com sucesso!");
+      showToast("Configuração de IA salva com sucesso!", "✅");
     }
   </script>
 </body>
