@@ -15,5 +15,8 @@
     "multer": "^2.4.0",
     "onnxruntime-node": "^1.30.0",
     "sharp": "^0.35.5"
+  },
+  "optionalDependencies": {
+    "@img/sharp-linux-x64": "^0.35.5"
   }
 }

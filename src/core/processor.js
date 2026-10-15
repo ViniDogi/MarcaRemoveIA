@@ -19,10 +19,15 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '../..');
-const logsDir = path.join(projectRoot, 'logs');
+const isVercel = Boolean(process.env.VERCEL);
+const logsDir = isVercel ? '/tmp/logs' : path.join(projectRoot, 'logs');
 
-if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir, { recursive: true });
+try {
+  if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+  }
+} catch {
+  // Ignora erro em sistemas de arquivos somente-leitura
 }
 
 export class WatermarkProcessor {

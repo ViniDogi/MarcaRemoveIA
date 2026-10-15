@@ -45,9 +45,13 @@ const UPLOAD_DIR = isVercel ? '/tmp/web_uploads' : path.join(projectRoot, 'web_u
 const OUTPUT_DIR = isVercel ? '/tmp/web_outputs' : path.join(projectRoot, 'web_outputs');
 const LOGS_DIR = isVercel ? '/tmp/logs' : path.join(projectRoot, 'logs');
 
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-if (!fs.existsSync(LOGS_DIR)) fs.mkdirSync(LOGS_DIR, { recursive: true });
+try {
+  if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  if (!fs.existsSync(LOGS_DIR)) fs.mkdirSync(LOGS_DIR, { recursive: true });
+} catch {
+  // Ignora erro em sistemas somente-leitura (Vercel Lambda)
+}
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -94,9 +98,22 @@ function broadcastProgress(taskId, data) {
   }
 }
 
+// 0. Healthcheck para Vercel e monitoramento
+app.get('/api/health', (req, res) => {
+  return res.json({
+    status: 'ok',
+    app: 'MarcaRemoveIA',
+    version: '2.0.0',
+    platform: process.platform,
+    isVercel
+  });
+});
+
 // 1. Página Principal
 app.get('/', (req, res) => {
   const candidates = [
+    path.join(projectRoot, 'index.html'),
+    path.join(process.cwd(), 'index.html'),
     path.join(projectRoot, 'public', 'index.html'),
     path.join(projectRoot, 'templates', 'index.html'),
     path.join(process.cwd(), 'public', 'index.html'),

@@ -2,10 +2,21 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import sharp from 'sharp';
-
 import { extractFrameBuffer } from './ai-detector.js';
 import { getVideoMetadata } from '../utils/ffmpeg.js';
+
+let cachedSharp = null;
+async function getSharp() {
+  if (cachedSharp) return cachedSharp;
+  try {
+    const mod = await import('sharp');
+    cachedSharp = mod.default || mod;
+    return cachedSharp;
+  } catch (err) {
+    console.warn('[ONNX] sharp indisponível neste ambiente:', err.message);
+    return null;
+  }
+}
 
 let cachedOrt = null;
 async function getOrt() {
@@ -23,10 +34,15 @@ async function getOrt() {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '../..');
-const modelsDir = path.join(projectRoot, 'models');
+const isVercel = Boolean(process.env.VERCEL);
+const modelsDir = isVercel ? '/tmp/models' : path.join(projectRoot, 'models');
 
-if (!fs.existsSync(modelsDir)) {
-  fs.mkdirSync(modelsDir, { recursive: true });
+try {
+  if (!fs.existsSync(modelsDir)) {
+    fs.mkdirSync(modelsDir, { recursive: true });
+  }
+} catch {
+  // Ignora erro em sistemas de arquivos somente-leitura
 }
 
 export const EXECUTION_PROVIDERS_PRIORITY = ['cuda', 'dml', 'coreml', 'cpu'];
@@ -206,18 +222,21 @@ export async function detectHybridWatermarks({
   const downH = Math.round(origH * scale);
 
   const frameBuffers = [];
+  const sharp = await getSharp();
 
-  for (const t of timestamps) {
-    try {
-      const buf = await extractFrameBuffer(videoPath, t, 'mjpeg');
-      const raw = await sharp(buf)
-        .resize(downW, downH)
-        .grayscale()
-        .raw()
-        .toBuffer();
-      frameBuffers.push(raw);
-    } catch {
-      // Ignora erro em frame pontual
+  if (sharp) {
+    for (const t of timestamps) {
+      try {
+        const buf = await extractFrameBuffer(videoPath, t, 'mjpeg');
+        const raw = await sharp(buf)
+          .resize(downW, downH)
+          .grayscale()
+          .raw()
+          .toBuffer();
+        frameBuffers.push(raw);
+      } catch {
+        // Ignora erro em frame pontual
+      }
     }
   }
 

@@ -1,14 +1,34 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import sharp from 'sharp';
 import { fileURLToPath } from 'node:url';
 import { extractFrameBuffer } from './ai-detector.js';
 import { getVideoMetadata, getFfmpegBinary, spawnPromise } from '../utils/ffmpeg.js';
 
+let cachedSharp = null;
+export async function getSharp() {
+  if (cachedSharp) return cachedSharp;
+  try {
+    const mod = await import('sharp');
+    cachedSharp = mod.default || mod;
+    return cachedSharp;
+  } catch (err) {
+    throw new Error('Módulo sharp não disponível neste ambiente: ' + err.message);
+  }
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '../..');
-const uploadsDir = path.join(projectRoot, 'web_uploads');
+const isVercel = Boolean(process.env.VERCEL);
+const uploadsDir = isVercel ? '/tmp/web_uploads' : path.join(projectRoot, 'web_uploads');
+
+try {
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+} catch {
+  // Ignora erro em sistemas de arquivos somente-leitura
+}
 
 /**
  * Dilata uma máscara binária (valores 0 e 255) por N pixels para cobrir halos da marca d'água.
@@ -44,6 +64,7 @@ export function dilateMask(rawPixels, width, height, radius = 3) {
  * Cria a máscara a partir do canal alpha da imagem de template ou de seus contornos.
  */
 export async function createWatermarkMask(templateBuffer, radius = 3) {
+  const sharp = await getSharp();
   const metadata = await sharp(templateBuffer).metadata();
   const { width, height, channels, hasAlpha } = metadata;
 
@@ -151,6 +172,7 @@ export async function findWatermarkByImage({
     throw new Error('Não foi possível ler os metadados do vídeo.');
   }
 
+  const sharp = await getSharp();
   const templMeta = await sharp(templateBuffer).metadata();
   const origTemplW = templMeta.width;
   const origTemplH = templMeta.height;
