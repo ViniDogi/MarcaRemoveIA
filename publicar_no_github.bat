@@ -2,7 +2,7 @@
 chcp 65001 >nul
 title Publicar MarcaRemoveIA no GitHub
 
-set "PATH=%PATH%;C:\Users\ArthurBiosystems\AppData\Local\Programs\Git\cmd;C:\Users\ArthurBiosystems\AppData\Local\Programs\gh\bin"
+set "PATH=%PATH%;%LOCALAPPDATA%\Programs\Git\cmd;%LOCALAPPDATA%\Programs\gh\bin;C:\Program Files\Git\cmd;C:\Program Files\GitHub CLI"
 
 echo ============================================================
 echo   🚀 Publicar MarcaRemoveIA no GitHub
