@@ -1,0 +1,17 @@
+{
+  "name": "marcaremoveia-main",
+  "version": "1.0.0",
+  "description": "> **Removedor Inteligente de Marcas d'Água para Vídeos com IA Generativa e Aceleração GPU Nativa (Desktop Windows & Web).**",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test tests/**/*.test.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.3.0",
+    "multer": "^2.4.0"
+  }
+}

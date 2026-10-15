@@ -3,6 +3,8 @@
 venv/
 ENV/
 env/
+node_modules/
+
 
 # Caches do Python
 __pycache__/
@@ -27,6 +29,7 @@ bin/
 *.mov
 web_uploads/
 web_outputs/
+logs/
 
 # Chaves de API e Segredos
 config.json
