@@ -2,11 +2,23 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import ort from 'onnxruntime-node';
 import sharp from 'sharp';
 
 import { extractFrameBuffer } from './ai-detector.js';
 import { getVideoMetadata } from '../utils/ffmpeg.js';
+
+let cachedOrt = null;
+async function getOrt() {
+  if (cachedOrt) return cachedOrt;
+  try {
+    const mod = await import('onnxruntime-node');
+    cachedOrt = mod.default || mod;
+    return cachedOrt;
+  } catch (err) {
+    console.warn('[ONNX] onnxruntime-node indisponível neste ambiente:', err.message);
+    return null;
+  }
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,6 +35,11 @@ export const EXECUTION_PROVIDERS_PRIORITY = ['cuda', 'dml', 'coreml', 'cpu'];
  * Cria uma sessão ONNX tentando os provedores em ordem de preferência: CUDA -> DirectML -> CoreML -> CPU.
  */
 export async function createOptimizedOnnxSession(modelPath) {
+  const ort = await getOrt();
+  if (!ort) {
+    throw new Error('ONNX Runtime não pôde ser inicializado neste ambiente.');
+  }
+
   let session = null;
   let providerUsed = 'cpu';
 

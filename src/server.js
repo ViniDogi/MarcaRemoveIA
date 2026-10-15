@@ -96,9 +96,16 @@ function broadcastProgress(taskId, data) {
 
 // 1. Página Principal
 app.get('/', (req, res) => {
-  const htmlPath = path.join(projectRoot, 'templates', 'index.html');
-  if (fs.existsSync(htmlPath)) {
-    return res.sendFile(htmlPath);
+  const candidates = [
+    path.join(projectRoot, 'public', 'index.html'),
+    path.join(projectRoot, 'templates', 'index.html'),
+    path.join(process.cwd(), 'public', 'index.html'),
+    path.join(process.cwd(), 'templates', 'index.html')
+  ];
+  for (const htmlPath of candidates) {
+    if (fs.existsSync(htmlPath)) {
+      return res.sendFile(htmlPath);
+    }
   }
   return res.status(404).send('<h1>MarcaRemoveIA Web - Arquivo index.html não encontrado</h1>');
 });
