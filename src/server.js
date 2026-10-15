@@ -658,6 +658,14 @@ app.post('/api/remote-download/update-bin', async (req, res) => {
   }
 });
 
+// 17. Fallback para rotas /api não mapeadas (garante retorno JSON e evita HTML 404)
+app.use('/api', (req, res) => {
+  return res.status(404).json({
+    success: false,
+    error: `Rota da API não encontrada: ${req.method} ${req.originalUrl || req.url}`
+  });
+});
+
 // Inicialização do Servidor (executado apenas fora de ambientes serverless como Vercel)
 if (!process.env.VERCEL) {
   app.listen(PORT, HOST, async () => {

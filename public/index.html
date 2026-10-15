@@ -54,11 +54,20 @@
         ⚙️ Configurar IA
       </button>
 
-      <span class="text-xs text-emerald-400 font-medium bg-emerald-950/60 px-3 py-1.5 rounded-xl border border-emerald-800/40 flex items-center gap-1.5">
-        <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Servidor Ativo
+      <span id="serverStatusBadge" class="text-xs text-cyan-300 font-medium bg-gray-950/80 px-3 py-1.5 rounded-xl border border-gray-800 flex items-center gap-1.5">
+        <span id="serverStatusDot" class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span> <span id="serverStatusText">Verificando...</span>
       </span>
     </div>
   </header>
+
+  <!-- Banner de Aviso se o Backend estiver desconectado ou em Vercel -->
+  <div id="backendAlertBanner" class="hidden bg-amber-500/10 border-b border-amber-500/30 px-6 py-3 text-xs text-amber-200 flex items-center justify-between">
+    <div class="flex items-center gap-2.5">
+      <span class="text-base">⚠️</span>
+      <span id="backendAlertText">Servidor backend não detectado. Para processar vídeos e utilizar IA/yt-dlp, execute o <code>run_web.bat</code> no seu computador e acesse via <strong>http://127.0.0.1:8000</strong>.</span>
+    </div>
+    <button onclick="document.getElementById('backendAlertBanner').classList.add('hidden')" class="text-amber-400 hover:text-white font-bold text-sm px-2">&times;</button>
+  </div>
 
   <!-- Banner de Aviso se FFmpeg não for encontrado -->
   <div id="ffmpegAlertBanner" class="hidden bg-amber-500/10 border-b border-amber-500/30 px-6 py-3 text-xs text-amber-200 flex items-center justify-between">
@@ -428,22 +437,100 @@
     const canvas = document.getElementById("drawCanvas");
     const ctx = canvas.getContext("2d");
 
+    // Utilitário de Parsing Seguro de Respostas HTTP (previne Unexpected token 'T' e outros erros de HTML)
+    async function parseJsonResponse(resp, fallbackMessage = "Erro na requisição") {
+      const contentType = resp.headers.get("content-type") || "";
+      let data = null;
+
+      if (contentType.includes("application/json")) {
+        try {
+          data = await resp.json();
+        } catch (e) {
+          // JSON malformado
+        }
+      }
+
+      if (data) {
+        if (!resp.ok && !data.error) {
+          data.error = `${fallbackMessage} (HTTP ${resp.status})`;
+        }
+        return data;
+      }
+
+      // Se a resposta do servidor não for JSON (HTML ou texto puro)
+      const rawText = await resp.text().catch(() => "");
+      const is404 = resp.status === 404 || rawText.includes("The page could not be found") || rawText.includes("NOT_FOUND");
+
+      if (is404) {
+        throw new Error(
+          "Servidor backend não encontrado (HTTP 404).\n\n" +
+          "⚠️ O MarcaRemoveIA depende de FFmpeg, yt-dlp e aceleração local de hardware (GPU/CPU).\n" +
+          "Ele deve ser executado no seu computador abrindo o arquivo 'run_web.bat' (ou 'run.bat') e acessado em http://127.0.0.1:8000.\n" +
+          "(Ambientes de hospedagem em nuvem como a Vercel não possuem suporte aos binários locais de vídeo e IA)."
+        );
+      }
+
+      if (resp.status === 413) {
+        throw new Error("Arquivo muito grande para envio no servidor (HTTP 413 Payload Too Large).");
+      }
+
+      if (!resp.ok) {
+        const preview = rawText.replace(/<[^>]*>?/gm, ' ').trim().slice(0, 160);
+        throw new Error(`Erro no servidor (HTTP ${resp.status}): ${preview || fallbackMessage}`);
+      }
+
+      throw new Error("Resposta inválida do servidor (não é um JSON válido).");
+    }
+
     // Inicialização da Página
     window.addEventListener("DOMContentLoaded", async () => {
       await loadHardwareInfo();
     });
 
     async function loadHardwareInfo() {
+      const statusText = document.getElementById("serverStatusText");
+      const statusBadge = document.getElementById("serverStatusBadge");
+      const statusDot = document.getElementById("serverStatusDot");
+      const backendBanner = document.getElementById("backendAlertBanner");
+      const backendText = document.getElementById("backendAlertText");
+
       try {
         const resp = await fetch("/api/hardware");
-        const data = await resp.json();
+        const data = await parseJsonResponse(resp, "Falha ao obter status do servidor");
         detectedHardware = data;
+
+        if (data.isVercel) {
+          if (statusText) statusText.innerText = "Nuvem (Vercel)";
+          if (statusBadge) {
+            statusBadge.className = "text-xs text-amber-400 font-medium bg-amber-950/60 px-3 py-1.5 rounded-xl border border-amber-800/40 flex items-center gap-1.5";
+          }
+          if (statusDot) {
+            statusDot.className = "w-2 h-2 rounded-full bg-amber-400";
+          }
+          if (backendBanner) {
+            backendBanner.classList.remove("hidden");
+            if (backendText) {
+              backendText.innerHTML = "<strong>Ambiente Vercel Detectado:</strong> Esta página está hospedada no Vercel. O processamento com IA, FFmpeg e download com yt-dlp requerem recursos locais. Para usá-los, execute o <code>run_web.bat</code> (ou <code>run.bat</code>) no seu computador e acesse <strong>http://127.0.0.1:8000</strong>.";
+            }
+          }
+        } else {
+          if (statusText) statusText.innerText = "Servidor Ativo";
+          if (statusBadge) {
+            statusBadge.className = "text-xs text-emerald-400 font-medium bg-emerald-950/60 px-3 py-1.5 rounded-xl border border-emerald-800/40 flex items-center gap-1.5";
+          }
+          if (statusDot) {
+            statusDot.className = "w-2 h-2 rounded-full bg-emerald-400";
+          }
+          if (backendBanner) backendBanner.classList.add("hidden");
+        }
 
         if (!data.ffmpegInstalled) {
           const banner = document.getElementById("ffmpegAlertBanner");
-          banner.classList.remove("hidden");
-          if (data.instruction) {
-            document.getElementById("ffmpegAlertText").innerText = data.instruction;
+          if (banner) {
+            banner.classList.remove("hidden");
+            if (data.instruction) {
+              document.getElementById("ffmpegAlertText").innerText = data.instruction;
+            }
           }
         }
 
@@ -455,6 +542,19 @@
         document.getElementById("hwStatusBadge").classList.remove("hidden");
       } catch (err) {
         console.warn("Aviso ao carregar dados de hardware:", err);
+        if (statusText) statusText.innerText = "Servidor Offline";
+        if (statusBadge) {
+          statusBadge.className = "text-xs text-red-400 font-medium bg-red-950/60 px-3 py-1.5 rounded-xl border border-red-800/40 flex items-center gap-1.5";
+        }
+        if (statusDot) {
+          statusDot.className = "w-2 h-2 rounded-full bg-red-400";
+        }
+        if (backendBanner) {
+          backendBanner.classList.remove("hidden");
+          if (backendText) {
+            backendText.innerHTML = "<strong>Servidor Backend não conectado:</strong> O backend do MarcaRemoveIA não respondeu em <code>/api</code>. Certifique-se de executar o <code>run_web.bat</code> (ou <code>run.bat</code>) e acessar via <strong>http://127.0.0.1:8000</strong>.";
+          }
+        }
       }
     }
 
@@ -487,7 +587,7 @@
 
       try {
         const resp = await fetch("/api/upload", { method: "POST", body: formData });
-        const data = await resp.json();
+        const data = await parseJsonResponse(resp, "Falha no envio do vídeo");
 
         if (data.success) {
           currentVideoId = data.video_id;
@@ -511,7 +611,7 @@
           showErrorModal("Erro ao carregar vídeo", data.error || "Formato inválido.");
         }
       } catch (err) {
-        showErrorModal("Falha na conexão", "Não foi possível enviar o vídeo: " + err.message);
+        showErrorModal("Falha no Envio", err.message);
       }
     }
 
@@ -861,7 +961,7 @@
 
       try {
         const resp = await fetch("/api/match-template", { method: "POST", body: formData });
-        const data = await resp.json();
+        const data = await parseJsonResponse(resp, "Falha ao localizar marca por imagem");
 
         if (data.success && data.box) {
           boxes.push({
@@ -909,7 +1009,7 @@
         });
 
         if (!resp.ok) {
-          const errData = await resp.json();
+          const errData = await parseJsonResponse(resp, "Falha na geração do quadro de prévia").catch(e => ({ error: e.message }));
           throw new Error(errData.error || "Falha na geração do quadro de prévia");
         }
 
@@ -943,7 +1043,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ video_id: currentVideoId, timestamp: currentTime })
         });
-        const data = await resp.json();
+        const data = await parseJsonResponse(resp, "Falha na detecção por IA");
 
         if (data.boxes && data.boxes.length > 0) {
           data.boxes.forEach(b => boxes.push(b));
@@ -992,7 +1092,7 @@
             upscale_fullhd: upscaleFullhd
           })
         });
-        const data = await resp.json();
+        const data = await parseJsonResponse(resp, "Falha ao iniciar processamento");
 
         if (data.task_id) {
           activeTaskId = data.task_id;
@@ -1045,7 +1145,7 @@
       if (!taskId) return;
       try {
         const resp = await fetch(`/api/progress/${taskId}`);
-        const data = await resp.json();
+        const data = await parseJsonResponse(resp, "Erro no polling");
         handleProgressUpdate(data);
       } catch (err) {
         console.error("Erro no polling:", err);
@@ -1167,7 +1267,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url })
         });
-        const data = await resp.json();
+        const data = await parseJsonResponse(resp, "Falha ao obter metadados do vídeo");
 
         if (data.success && data.info) {
           remoteVideoInfo = data.info;
@@ -1227,7 +1327,7 @@
             hardwareEncoder: engine
           })
         });
-        const data = await resp.json();
+        const data = await parseJsonResponse(resp, "Falha ao iniciar download");
 
         if (data.success && data.task_id) {
           activeTaskId = data.task_id;
@@ -1246,7 +1346,7 @@
       showToast("Verificando atualizações do yt-dlp...", "🔄");
       try {
         const resp = await fetch("/api/remote-download/update-bin", { method: "POST" });
-        const data = await resp.json();
+        const data = await parseJsonResponse(resp, "Falha ao contatar atualizador");
         if (data.success) {
           showToast("yt-dlp atualizado / verificado!", "✅");
           alert("yt-dlp: " + (data.message || "Atualizado com sucesso."));
@@ -1255,7 +1355,7 @@
           alert("yt-dlp info: " + (data.message || data.error));
         }
       } catch (err) {
-        showToast("Erro ao contatar servidor", "❌");
+        showToast("Erro ao contatar servidor: " + err.message, "❌");
       }
     }
 
@@ -1315,7 +1415,7 @@
           document.getElementById("errorLogPre").innerText = "Carregando log do servidor...";
           try {
             const resp = await fetch(`/api/logs/${currentErrorTaskId}`);
-            const data = await resp.json();
+            const data = await parseJsonResponse(resp, "Falha ao buscar arquivo de log");
             document.getElementById("errorLogPre").innerText = data.log || "Log vazio ou não disponível.";
           } catch (e) {
             document.getElementById("errorLogPre").innerText = "Erro ao buscar arquivo de log: " + e.message;
@@ -1337,7 +1437,7 @@
     async function openConfigModal() {
       try {
         const resp = await fetch("/api/config");
-        const data = await resp.json();
+        const data = await parseJsonResponse(resp, "Falha ao carregar configurações");
         document.getElementById("modalProvider").value = data.provider || "gemini";
         if (data.masked_key) {
           document.getElementById("modalMaskedKey").innerText = `Chave configurada: ${data.masked_key}`;
