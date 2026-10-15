@@ -1,0 +1,7 @@
+# Configuração de Quebra de Linha (EOL)
+# Garante que arquivos de lote do Windows sempre mantenham CRLF ao baixar do GitHub
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Padrão automático para outros arquivos de código
+* text=auto
