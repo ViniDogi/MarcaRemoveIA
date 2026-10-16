@@ -10,7 +10,7 @@ const projectRoot = path.resolve(__dirname, '../..');
 const CONFIG_FILE = path.join(projectRoot, 'config.json');
 
 export const DEFAULT_CONFIG = {
-  provider: 'gemini', // 'gemini', 'openai', 'local_cv'
+  provider: 'local_cv', // 'local_cv', 'gemini', 'openai'
   api_key: '',
   model: 'gemini-1.5-flash',
   prompt_detection: 'Detect any watermarks, logos, channel tags, timestamps, or translucent text in this image. Return a JSON array of bounding boxes with pixel coordinates: [{"x": int, "y": int, "w": int, "h": int, "name": string}]. Return ONLY valid JSON.',
@@ -73,7 +73,7 @@ export function extractFrameBuffer(videoPath, timestampSec = 0, format = 'mjpeg'
 }
 
 /**
- * Detecta marcas d'água no quadro do vídeo usando API configurada ou heurística local.
+ * Detecta marcas d'água no quadro do vídeo usando API configurada ou algoritmo local de visão computacional.
  */
 export async function detectWatermarksAi(videoPath, timestampSec = 0) {
   const config = loadAiConfig();
@@ -86,18 +86,42 @@ export async function detectWatermarksAi(videoPath, timestampSec = 0) {
   const frameBuffer = await extractFrameBuffer(videoPath, timestampSec, 'mjpeg');
   const base64Img = frameBuffer.toString('base64');
 
-  const provider = config.provider || 'gemini';
+  const provider = config.provider || 'local_cv';
   const apiKey = (config.api_key || '').trim();
 
+  // 1. Tenta API de IA se houver chave configurada e não for local_cv
   if (apiKey && provider === 'gemini') {
-    const detected = await detectWithGemini(base64Img, width, height, apiKey, config);
-    if (detected && detected.length > 0) return detected;
+    try {
+      const detected = await detectWithGemini(base64Img, width, height, apiKey, config);
+      if (detected && detected.length > 0) return detected;
+    } catch (e) {
+      console.warn('[AI Detector] Falha na detecção Gemini, tentando detector local:', e.message);
+    }
   } else if (apiKey && provider === 'openai') {
-    const detected = await detectWithOpenAi(base64Img, width, height, apiKey, config);
-    if (detected && detected.length > 0) return detected;
+    try {
+      const detected = await detectWithOpenAi(base64Img, width, height, apiKey, config);
+      if (detected && detected.length > 0) return detected;
+    } catch (e) {
+      console.warn('[AI Detector] Falha na detecção OpenAI, tentando detector local:', e.message);
+    }
   }
 
-  // Fallback para detector heurístico local (cantos e dimensões comuns)
+  // 2. Fallback para Visão Computacional Híbrida Local
+  try {
+    const { detectHybridWatermarks } = await import('./onnx-engine.js');
+    const localBoxes = await detectHybridWatermarks({
+      videoPath,
+      sampleCount: 5,
+      downscaleWidth: 480
+    });
+    if (localBoxes && localBoxes.length > 0) {
+      return localBoxes;
+    }
+  } catch (err) {
+    console.warn('[AI Detector] Falha na detecção híbrida local:', err.message);
+  }
+
+  // 3. Fallback estático de segurança
   return detectLocalHeuristics(width, height);
 }
 
@@ -105,15 +129,13 @@ async function detectWithGemini(base64Img, width, height, apiKey, config) {
   const model = config.model || 'gemini-1.5-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-  const prompt = `Analyze this image of size ${width}x${height} pixels.\n` +
-    'Identify any watermarks, broadcast channel logos, timestamps, copyright overlays, or subtitles.\n' +
-    'Return the bounding box coordinates strictly in this JSON format:\n' +
-    '```json\n' +
+  const prompt = `Analyze this video frame image of dimensions ${width}x${height} pixels.\n` +
+    'Identify all watermarks, logos, TV channel tags, social media handles (TikTok, Instagram, Kwai), timestamps, or subtitles.\n' +
+    'Return a JSON array of bounding boxes with pixel coordinates strictly in this format:\n' +
     '[\n' +
-    '  {"x": 10, "y": 20, "w": 120, "h": 40, "name": "Logo do Canal"}\n' +
+    '  {"x": int, "y": int, "w": int, "h": int, "name": "Nome da Marca"}\n' +
     ']\n' +
-    '```\n' +
-    'If no watermark exists, return `[]`. Output only the JSON block.';
+    'If no watermark is found, return []. Return ONLY valid JSON, without surrounding markdown commentary.';
 
   const payload = {
     contents: [{
@@ -129,7 +151,7 @@ async function detectWithGemini(base64Img, width, height, apiKey, config) {
     }],
     generationConfig: {
       temperature: 0.1,
-      maxOutputTokens: 800
+      maxOutputTokens: 1000
     }
   };
 
@@ -145,9 +167,12 @@ async function detectWithGemini(base64Img, width, height, apiKey, config) {
       const data = await res.json();
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
       return parseJsonBoxes(text, width, height);
+    } else {
+      const errText = await res.text();
+      console.warn(`[AI Detector] Gemini retornou HTTP ${res.status}:`, errText);
     }
   } catch (err) {
-    console.warn('Aviso: Falha na API Gemini:', err.message);
+    console.warn('[AI Detector] Erro de rede com Gemini:', err.message);
   }
 
   return null;
@@ -155,12 +180,12 @@ async function detectWithGemini(base64Img, width, height, apiKey, config) {
 
 async function detectWithOpenAi(base64Img, width, height, apiKey, config) {
   const url = 'https://api.openai.com/v1/chat/completions';
-  const prompt = `Detect all watermarks, channel logos, text overlays in this ${width}x${height} image.\n` +
-    'Return coordinates as JSON: [{"x": int, "y": int, "w": int, "h": int, "name": "Marca"}].\n' +
+  const prompt = `Detect all watermarks, channel logos, usernames, text overlays in this ${width}x${height} image.\n` +
+    'Return coordinates strictly as JSON: [{"x": int, "y": int, "w": int, "h": int, "name": "Marca"}].\n' +
     'If none found, return [].';
 
   const payload = {
-    model: 'gpt-4o-mini',
+    model: config.model || 'gpt-4o-mini',
     messages: [
       {
         role: 'user',
@@ -193,65 +218,101 @@ async function detectWithOpenAi(base64Img, width, height, apiKey, config) {
       return parseJsonBoxes(text, width, height);
     }
   } catch (err) {
-    console.warn('Aviso: Falha na API OpenAI:', err.message);
+    console.warn('[AI Detector] Erro de rede com OpenAI:', err.message);
   }
 
   return null;
 }
 
-function parseJsonBoxes(text, imgW, imgH) {
-  const match = text.match(/\[[\s\S]*\]/);
-  if (!match) return [];
+export function parseJsonBoxes(text, imgW, imgH) {
+  if (!text || typeof text !== 'string') return [];
 
-  try {
-    const data = JSON.parse(match[0]);
-    const valid = [];
+  // Remove marcações de código markdown se presentes
+  let cleanText = text.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
 
-    data.forEach((item, idx) => {
-      let x = Number(item.x) || 0;
-      let y = Number(item.y) || 0;
-      let w = Number(item.w) || 0;
-      let h = Number(item.h) || 0;
-      const name = item.name || `IA Detectada #${idx + 1}`;
+  // Localiza o bloco JSON de array [ ... ] ou objeto { "boxes": [...] }
+  let data = null;
+  const arrayMatch = cleanText.match(/\[[\s\S]*\]/);
+  if (arrayMatch) {
+    try {
+      data = JSON.parse(arrayMatch[0]);
+    } catch {
+      // Ignora erro e tenta parse de objeto
+    }
+  }
 
-      // Valores normalizados (0 a 1)
-      if (x > 0 && x < 1 && w > 0 && w <= 1) {
+  if (!data) {
+    const objMatch = cleanText.match(/\{[\s\S]*\}/);
+    if (objMatch) {
+      try {
+        const obj = JSON.parse(objMatch[0]);
+        data = obj.boxes || obj.watermarks || obj.detected || [];
+      } catch {
+        // Ignora
+      }
+    }
+  }
+
+  if (!Array.isArray(data)) return [];
+
+  const valid = [];
+
+  data.forEach((item, idx) => {
+    let x = 0, y = 0, w = 0, h = 0;
+    const name = item.name || item.label || `Marca #${idx + 1}`;
+
+    // Suporta formato [ymin, xmin, ymax, xmax] padrão Gemini box_2d
+    if (Array.isArray(item.box_2d) && item.box_2d.length === 4) {
+      const [ymin, xmin, ymax, xmax] = item.box_2d;
+      const normY = ymin > 1 ? ymin / 1000 : ymin;
+      const normX = xmin > 1 ? xmin / 1000 : xmin;
+      const normH = (ymax - ymin) > 1 ? (ymax - ymin) / 1000 : (ymax - ymin);
+      const normW = (xmax - xmin) > 1 ? (xmax - xmin) / 1000 : (xmax - xmin);
+      x = Math.round(normX * imgW);
+      y = Math.round(normY * imgH);
+      w = Math.round(normW * imgW);
+      h = Math.round(normH * imgH);
+    } else {
+      x = Number(item.x !== undefined ? item.x : (item.left || 0));
+      y = Number(item.y !== undefined ? item.y : (item.top || 0));
+      w = Number(item.w !== undefined ? item.w : (item.width || 0));
+      h = Number(item.h !== undefined ? item.h : (item.height || 0));
+
+      // Normalizado entre 0 e 1 (se valores fracionários)
+      if (x > 0 && x <= 1 && w > 0 && w <= 1) {
         x = Math.round(x * imgW);
         w = Math.round(w * imgW);
       }
-      if (y > 0 && y < 1 && h > 0 && h <= 1) {
+      if (y > 0 && y <= 1 && h > 0 && h <= 1) {
         y = Math.round(y * imgH);
         h = Math.round(h * imgH);
       }
+    }
 
-      if (w > 10 && h > 10) {
-        valid.push({
-          id: idx + 1,
-          x: Math.max(0, Math.min(x, imgW - 5)),
-          y: Math.max(0, Math.min(y, imgH - 5)),
-          w: Math.min(w, imgW - x),
-          h: Math.min(h, imgH - y),
-          name
-        });
-      }
-    });
+    if (w >= 10 && h >= 10) {
+      valid.push({
+        id: idx + 1,
+        x: Math.max(0, Math.min(x, imgW - 5)),
+        y: Math.max(0, Math.min(y, imgH - 5)),
+        w: Math.min(w, imgW - x),
+        h: Math.min(h, imgH - y),
+        name
+      });
+    }
+  });
 
-    return valid;
-  } catch {
-    return [];
-  }
+  return valid;
 }
 
 /**
  * Detector heurístico local nos 4 cantos mais prováveis para vídeos.
  */
-function detectLocalHeuristics(width, height) {
+export function detectLocalHeuristics(width, height) {
   const marginX = Math.round(width * 0.04);
   const marginY = Math.round(height * 0.05);
   const boxW = Math.round(width * 0.22);
   const boxH = Math.round(height * 0.10);
 
-  // Sugere canto superior direito ou inferior direito típicos
   return [
     {
       id: 1,

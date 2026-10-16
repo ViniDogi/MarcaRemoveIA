@@ -2,6 +2,10 @@
 
 > **Plataforma Web Profissional para Remoção Inteligente de Marcas d'Água em Vídeos com IA, Aceleração por Hardware Universal (GPU/CPU) e Download por Link.**
 
+[![Acesse a Versão Web](https://img.shields.io/badge/Acessar%20Vers%C3%A3o%20Web-https%3A%2F%2Fmarca--remove--ia.vercel.app%2F-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://marca-remove-ia.vercel.app/)
+
+> 🌐 **Acesse a Versão Web Online (sem instalação):** [https://marca-remove-ia.vercel.app/](https://marca-remove-ia.vercel.app/)
+
 [![Node.js Version](https://img.shields.io/badge/Node.js-20%2B%20%7C%2024%20ESM-green.svg)](https://nodejs.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-0078D6.svg)](https://github.com/)
 [![FFmpeg](https://img.shields.io/badge/FFmpeg-Hardware%20Accelerated-orange.svg)](https://ffmpeg.org/)
@@ -13,7 +17,11 @@
 
 ## 🎯 Sobre o Projeto
 
-O **MarcaRemoveIA** é um servidor web moderno (`http://127.0.0.1:8000`) desenvolvido integralmente em **JavaScript (Node.js ESM)** para identificar e remover marcas d'água, logotipos, carimbos e legendas em vídeos com alta precisão e performance otimizada.
+O **MarcaRemoveIA** está disponível em duas modalidades:
+- 🌐 **Versão Web Online:** [https://marca-remove-ia.vercel.app/](https://marca-remove-ia.vercel.app/) (Acesse direto pelo navegador sem precisar instalar nada).
+- 🖥️ **Servidor Local Acelerado:** `http://127.0.0.1:8000` (Com suporte a aceleração nativa por GPU NVIDIA/Intel/AMD e FFmpeg integrado).
+
+Desenvolvido integralmente em **JavaScript (Node.js ESM)** para identificar e remover marcas d'água, logotipos, carimbos e legendas em vídeos com alta precisão e performance otimizada.
 
 O sistema opera sem dependências legadas em Python no runtime, chamando binários como **FFmpeg** e **yt-dlp** diretamente via `child_process.spawn` (com argumentos em array isolados, eliminando riscos de injeção de shell).
 
@@ -113,9 +121,16 @@ npm install
 
 ---
 
-## 🚀 Como Executar
+## 🚀 Como Acessar e Executar
 
-### 1. Iniciar o Servidor Web
+### 🌐 Opção 1: Acessar Diretamente pela Web (Sem Instalação)
+Você pode utilizar a aplicação imediatamente pela nuvem:
+👉 **[https://marca-remove-ia.vercel.app/](https://marca-remove-ia.vercel.app/)**
+
+---
+
+### 🖥️ Opção 2: Executar Localmente com Aceleração por Hardware (GPU/FFmpeg)
+Inicie o servidor local:
 ```bash
 npm start
 ```

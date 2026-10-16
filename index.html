@@ -106,6 +106,19 @@
             <p class="text-sm font-medium text-gray-200">Arraste um vídeo aqui ou clique</p>
             <p class="text-xs text-gray-500 mt-0.5">MP4, MKV, AVI, MOV ou WebM</p>
           </div>
+          <!-- Barra de Progresso de Upload para o Servidor Acelerado -->
+          <div id="uploadProgressWrap" class="hidden mt-2.5 bg-gray-950/90 p-3 rounded-xl border border-gray-800 space-y-2">
+            <div class="flex justify-between items-center text-xs text-gray-300">
+              <span id="uploadProgressStatus" class="flex items-center gap-1.5 truncate">
+                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                <span>Enviando para o servidor...</span>
+              </span>
+              <span id="uploadProgressPercent" class="font-mono-code font-bold text-cyan-300">0%</span>
+            </div>
+            <div class="w-full bg-gray-800 rounded-full h-2 overflow-hidden p-0.5 border border-gray-700/60">
+              <div id="uploadProgressBar" class="bg-gradient-to-r from-cyan-500 to-teal-400 h-1 rounded-full transition-all duration-100" style="width: 0%"></div>
+            </div>
+          </div>
         </div>
 
         <!-- Conteúdo: Baixar por Link (yt-dlp) -->
@@ -231,10 +244,24 @@
         </div>
       </div>
 
-      <!-- Configurações de Aceleração de Hardware -->
+      <!-- 3. Método de Remoção de Marca d'Água com IA -->
       <div>
         <div class="flex justify-between items-center mb-1.5">
-          <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">3. Aceleração de Hardware</label>
+          <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">3. Método de Remoção</label>
+          <span class="text-[10px] bg-purple-950/90 text-purple-300 font-bold px-2 py-0.5 rounded-full border border-purple-800/60">Novo</span>
+        </div>
+        <select id="removalMethodSelect" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-cyan-500">
+          <option value="ai_inpaint" selected>🤖 IA Generativa / Inpainting Neural (Reconstrução Inteligente)</option>
+          <option value="delogo">🌊 Interpolação Suave HD (Filtro Delogo Inteligente)</option>
+          <option value="blur">🌫️ Desfoque Suave / Blur Adaptativo</option>
+        </select>
+        <p class="text-[11px] text-gray-500 mt-1">A IA Generativa reconstrói o fundo e as texturas ao redor da marca de forma imperceptível.</p>
+      </div>
+
+      <!-- 4. Configurações de Aceleração de Hardware -->
+      <div>
+        <div class="flex justify-between items-center mb-1.5">
+          <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider">4. Aceleração de Hardware</label>
           <span id="activeEncoderLabel" class="text-[11px] text-cyan-400 font-medium">Detectando...</span>
         </div>
         <select id="hwAccelSelect" onchange="onHwAccelChange()" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-cyan-500">
@@ -585,10 +612,11 @@
 
     let currentLocalFile = null;
 
-    // Upload e Carregamento de Vídeo (Suporte Híbrido Local e Nuvem)
+    // Upload e Carregamento de Vídeo (com Barra de Progresso Real e Bloqueio de Corrida)
     async function handleFileUpload(file) {
       if (!file) return;
       currentLocalFile = file;
+      currentVideoId = null; // Reseta ID até confirmar upload no servidor
 
       // 1. Carrega prévia imediata no player HTML5 Video via URL de objeto local
       const localUrl = URL.createObjectURL(file);
@@ -616,21 +644,43 @@
         document.getElementById("videoInfoCard").classList.remove("hidden");
 
         document.getElementById("btnAiDetect").disabled = false;
-        document.getElementById("btnProcess").disabled = false;
         document.getElementById("btnPreviewFrame").disabled = false;
-        document.getElementById("statusText").innerText = "Vídeo carregado com sucesso. Marque a marca d'água.";
-        showToast("Vídeo pronto para edição!", "📹");
         initCanvas();
       };
 
-      // 3. Tenta sincronizar com o servidor em segundo plano para aceleração de hardware se disponível
-      if (file.size <= 4.5 * 1024 * 1024 || !detectedHardware?.isVercel) {
-        try {
-          const formData = new FormData();
-          formData.append("file", file);
-          const resp = await fetch("/api/upload", { method: "POST", body: formData });
-          if (resp.ok) {
-            const data = await resp.json();
+      // 3. Upload com XMLHttpRequest para exibir progresso de upload real
+      const upWrap = document.getElementById("uploadProgressWrap");
+      const upBar = document.getElementById("uploadProgressBar");
+      const upPct = document.getElementById("uploadProgressPercent");
+      const upStatus = document.getElementById("uploadProgressStatus");
+      const btnProc = document.getElementById("btnProcess");
+
+      if (upWrap) upWrap.classList.remove("hidden");
+      if (btnProc) {
+        btnProc.disabled = true;
+        btnProc.innerText = "⏳ Enviando vídeo para o servidor acelerado...";
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/upload", true);
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          if (upBar) upBar.style.width = pct + "%";
+          if (upPct) upPct.innerText = pct + "%";
+          if (upStatus) upStatus.innerText = `Enviando vídeo para GPU/CPU: ${pct}% (${(e.loaded / 1048576).toFixed(1)}MB / ${(e.total / 1048576).toFixed(1)}MB)`;
+          document.getElementById("statusText").innerText = `Enviando vídeo para o servidor: ${pct}%...`;
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status === 200) {
+          try {
+            const data = JSON.parse(xhr.responseText);
             if (data.success) {
               currentVideoId = data.video_id;
               if (data.metadata && !data.metadata.isFallbackMetadata) {
@@ -639,12 +689,43 @@
                 document.getElementById("infoDur").innerText = `${Math.floor(videoMeta.duration)}s (${videoMeta.nb_frames} frames)`;
                 document.getElementById("infoFps").innerText = `${videoMeta.fps.toFixed(2)} fps`;
               }
+              if (upStatus) upStatus.innerText = "✅ Vídeo pronto no servidor com aceleração de hardware!";
+              if (upBar) upBar.style.width = "100%";
+              if (upPct) upPct.innerText = "100%";
+              setTimeout(() => { if (upWrap) upWrap.classList.add("hidden"); }, 2000);
+
+              if (btnProc) {
+                btnProc.disabled = false;
+                btnProc.innerText = "🚀 Iniciar Remoção da Marca d'Água";
+              }
+              document.getElementById("statusText").innerText = "Vídeo carregado e pronto para remoção com IA!";
+              showToast("Vídeo pronto no servidor com aceleração!", "⚡");
+              return;
             }
-          }
-        } catch (e) {
-          console.log("Upload em segundo plano ignorado (modo navegador ativo):", e.message);
+          } catch {}
         }
-      }
+
+        // Se falhou ou em ambiente Vercel/Web pura
+        console.warn("Upload no servidor não concluído. Modo navegador disponível como contingência.");
+        if (upWrap) upWrap.classList.add("hidden");
+        if (btnProc) {
+          btnProc.disabled = false;
+          btnProc.innerText = "🚀 Iniciar Remoção da Marca d'Água";
+        }
+        document.getElementById("statusText").innerText = "Vídeo pronto para edição.";
+      };
+
+      xhr.onerror = () => {
+        console.warn("Erro de conexão ao enviar vídeo para o servidor local.");
+        if (upWrap) upWrap.classList.add("hidden");
+        if (btnProc) {
+          btnProc.disabled = false;
+          btnProc.innerText = "🚀 Iniciar Remoção da Marca d'Água";
+        }
+        document.getElementById("statusText").innerText = "Vídeo pronto para edição no navegador.";
+      };
+
+      xhr.send(formData);
     }
 
     // Inicialização do Canvas
@@ -1073,6 +1154,8 @@
       }
 
       const currentTime = video.currentTime || 0;
+      const method = document.getElementById("removalMethodSelect")?.value || "ai_inpaint";
+
       try {
         const resp = await fetch("/api/preview-frame", {
           method: "POST",
@@ -1080,7 +1163,8 @@
           body: JSON.stringify({
             video_id: currentVideoId,
             timestamp: currentTime,
-            boxes: boxes
+            boxes: boxes,
+            method: method
           })
         });
 
@@ -1118,11 +1202,15 @@
 
     // Detecção com IA
     async function detectWithAI() {
-      if (!currentVideoId) {
+      if (!video.src || video.classList.contains("hidden")) {
         showToast("Carregue um vídeo primeiro!", "⚠️");
         return;
       }
-      document.getElementById("statusText").innerText = "🤖 IA analisando frame em busca de marcas d'água...";
+      if (!currentVideoId) {
+        showToast("Aguarde a sincronização do vídeo com o servidor...", "⏳");
+        return;
+      }
+      document.getElementById("statusText").innerText = "🤖 IA analisando marcas d'água no vídeo...";
       document.getElementById("btnAiDetect").disabled = true;
 
       const currentTime = video.currentTime || 0;
@@ -1136,13 +1224,15 @@
         const data = await parseJsonResponse(resp, "Falha na detecção por IA");
 
         if (data.boxes && data.boxes.length > 0) {
+          // Limpa caixas anteriores para não acumular duplicatas
+          boxes = [];
           data.boxes.forEach(b => boxes.push(b));
           updateBoxesList();
           redrawBoxes();
-          document.getElementById("statusText").innerText = `✅ IA identificou ${data.boxes.length} região(ões)!`;
-          showToast(`${data.boxes.length} marca(s) detectada(s)!`, "✨");
+          document.getElementById("statusText").innerText = `✅ IA identificou ${data.boxes.length} marca(s) d'água!`;
+          showToast(`${data.boxes.length} marca(s) detectada(s) com IA!`, "✨");
         } else {
-          document.getElementById("statusText").innerText = "Nenhuma marca óbvia encontrada neste frame. Desenhe no vídeo.";
+          document.getElementById("statusText").innerText = "Nenhuma marca identificada neste quadro. Mude o tempo do vídeo ou desenhe manualmente.";
           showToast("Nenhuma marca encontrada no quadro atual.", "ℹ️");
         }
       } catch (err) {
@@ -1310,6 +1400,7 @@
       }
 
       const engine = document.getElementById("hwAccelSelect").value;
+      const method = document.getElementById("removalMethodSelect")?.value || "ai_inpaint";
       const keepAudio = document.getElementById("chkKeepAudio").checked;
       const upscaleFullhd = document.getElementById("chkUpscale").checked;
 
@@ -1325,7 +1416,12 @@
         return;
       }
 
-      document.getElementById("statusText").innerText = "Iniciando processamento no servidor...";
+      const methodNames = {
+        ai_inpaint: "IA Generativa (Inpainting)",
+        delogo: "Interpolação Delogo",
+        blur: "Desfoque Suave"
+      };
+      document.getElementById("statusText").innerText = `Iniciando remoção por ${methodNames[method] || method} no servidor acelerado...`;
 
       try {
         const resp = await fetch("/api/process", {
@@ -1335,6 +1431,7 @@
             video_id: currentVideoId,
             boxes: boxes,
             engine: engine,
+            method: method,
             keep_audio: keepAudio,
             upscale_fullhd: upscaleFullhd
           })

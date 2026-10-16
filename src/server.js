@@ -27,7 +27,8 @@ import {
   generateFramePreview
 } from './core/template-matcher.js';
 import {
-  detectHybridWatermarks
+  detectHybridWatermarks,
+  inpaintImageBuffer
 } from './core/onnx-engine.js';
 import {
   getVideoInfo,
@@ -272,7 +273,7 @@ app.post('/api/match-template', upload.single('template_image'), async (req, res
 
 // 6.2 Prévia do Resultado em 1 Frame
 app.post('/api/preview-frame', async (req, res) => {
-  const { video_id, timestamp = 0, boxes = [] } = req.body;
+  const { video_id, timestamp = 0, boxes = [], method = 'ai_inpaint' } = req.body;
   if (!video_id) {
     return res.status(400).json({ error: 'video_id é obrigatório.' });
   }
@@ -285,11 +286,20 @@ app.post('/api/preview-frame', async (req, res) => {
 
   const videoPath = path.join(UPLOAD_DIR, matched);
   try {
-    const previewBuffer = await generateFramePreview({
-      videoPath,
-      timestamp: parseFloat(timestamp) || 0,
-      boxes
-    });
+    let previewBuffer;
+    if (method === 'ai_inpaint' && boxes.length > 0) {
+      const origFrame = await extractFrameBuffer(videoPath, parseFloat(timestamp) || 0, 'mjpeg');
+      previewBuffer = await inpaintImageBuffer({
+        imageBuffer: origFrame,
+        boxes
+      });
+    } else {
+      previewBuffer = await generateFramePreview({
+        videoPath,
+        timestamp: parseFloat(timestamp) || 0,
+        boxes
+      });
+    }
 
     res.setHeader('Content-Type', 'image/jpeg');
     return res.send(previewBuffer);
@@ -304,6 +314,7 @@ app.post('/api/process', async (req, res) => {
     video_id,
     boxes = [],
     engine = 'auto',
+    method = 'ai_inpaint',
     quality = 'high',
     keep_audio = true,
     upscale_fullhd = false
@@ -333,7 +344,8 @@ app.post('/api/process', async (req, res) => {
     cancelled: false,
     error: null,
     outputPath,
-    encoderInUse: engine
+    encoderInUse: engine,
+    method
   };
 
   const processor = new WatermarkProcessor();
@@ -347,6 +359,7 @@ app.post('/api/process', async (req, res) => {
         outputVideo: outputPath,
         watermarkBoxes: boxes,
         engine,
+        method,
         quality,
         keepAudio: Boolean(keep_audio),
         upscaleFullhd: Boolean(upscale_fullhd),
@@ -589,7 +602,7 @@ app.post('/api/remote-download/start', async (req, res) => {
           inputPath: dlResult.filePath,
           outputPath,
           watermarkBoxes: boxes,
-          method: method || 'delogo',
+          method: method || 'ai_inpaint',
           hardwareEncoder: hardwareEncoder || 'auto',
           taskId,
           onProgress: (percent, status) => {

@@ -2,6 +2,7 @@
   "name": "marcaremoveia-main",
   "version": "1.0.0",
   "description": "> **Removedor Inteligente de Marcas d'Água para Vídeos com IA Generativa e Aceleração GPU Nativa (Desktop Windows & Web).**",
+  "homepage": "https://marca-remove-ia.vercel.app/",
   "main": "src/server.js",
   "type": "module",
   "scripts": {

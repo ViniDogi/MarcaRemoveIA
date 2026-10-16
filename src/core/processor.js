@@ -31,22 +31,28 @@ try {
 }
 
 export class WatermarkProcessor {
-  constructor() {
+  constructor(initOptions = {}) {
     this.currentProcess = null;
     this.cancelRequested = false;
     this.isRunning = false;
+    this.initOptions = initOptions;
   }
 
   cancel() {
     this.cancelRequested = true;
     if (this.currentProcess && !this.currentProcess.killed) {
       try {
-        this.currentProcess.kill('SIGTERM');
-        setTimeout(() => {
-          if (this.currentProcess && !this.currentProcess.killed) {
-            this.currentProcess.kill('SIGKILL');
-          }
-        }, 1500);
+        const pid = this.currentProcess.pid;
+        if (process.platform === 'win32' && pid) {
+          spawn('taskkill', ['/F', '/T', '/PID', pid.toString()], { windowsHide: true });
+        } else {
+          this.currentProcess.kill('SIGTERM');
+          setTimeout(() => {
+            if (this.currentProcess && !this.currentProcess.killed) {
+              this.currentProcess.kill('SIGKILL');
+            }
+          }, 1500);
+        }
       } catch (err) {
         console.error('Erro ao cancelar processo FFmpeg:', err);
       }
@@ -54,13 +60,44 @@ export class WatermarkProcessor {
   }
 
   /**
-   * Executa a remoção de marca d'água com fallback automático universal de encoders.
+   * Alias de compatibilidade com pipeline de download
+   */
+  async process(overrideOptions = {}) {
+    const opts = { ...this.initOptions, ...overrideOptions };
+    return this.runRemoval({
+      inputVideo: opts.inputPath || opts.inputVideo,
+      outputVideo: opts.outputPath || opts.outputVideo,
+      watermarkBoxes: opts.watermarkBoxes || opts.boxes || [],
+      engine: opts.hardwareEncoder || opts.engine || 'auto',
+      method: opts.method || 'ai_inpaint',
+      quality: opts.quality || 'high',
+      keepAudio: opts.keepAudio !== undefined ? opts.keepAudio : true,
+      upscaleFullhd: Boolean(opts.upscaleFullhd || opts.upscale_fullhd),
+      taskId: opts.taskId || Date.now().toString(),
+      onProgress: (p) => {
+        if (typeof opts.onProgress === 'function') {
+          // Suporta tanto onProgress({ percent, status }) quanto onProgress(percent, status)
+          if (typeof p === 'object') {
+            const pct = Math.round((p.progress || 0) * 100);
+            opts.onProgress(pct, p.status);
+          } else {
+            opts.onProgress(p);
+          }
+        }
+      }
+    });
+  }
+
+  /**
+   * Executa a remoção de marca d'água com suporte a múltiplos métodos (IA, Delogo, Blur)
+   * e fallback automático universal de encoders.
    */
   async runRemoval({
     inputVideo,
     outputVideo,
     watermarkBoxes = [],
     engine = 'auto',
+    method = 'ai_inpaint', // 'ai_inpaint', 'delogo', 'blur'
     quality = 'high',
     keepAudio = true,
     upscaleFullhd = false,
@@ -81,12 +118,11 @@ export class WatermarkProcessor {
     const logPath = path.join(logsDir, `ffmpeg-${taskId}.log`);
     const logStream = fs.createWriteStream(logPath, { flags: 'a', encoding: 'utf-8' });
     logStream.write(`=== Início da Tarefa: ${taskId} ===\n`);
-    logStream.write(`Arquivo: ${inputVideo}\nResolução: ${meta.width}x${meta.height}\nFPS: ${meta.fps}\nFrames: ${meta.nb_frames}\n\n`);
+    logStream.write(`Arquivo: ${inputVideo}\nResolução: ${meta.width}x${meta.height}\nFPS: ${meta.fps}\nFrames: ${meta.nb_frames}\nMétodo: ${method}\n\n`);
 
-    // 3. Monta cadeia de filtros
+    // 3. Monta cadeia de filtros com base no método escolhido
     const filters = [];
 
-    // Filtros delogo para cada bounding box (com margem mínima de segurança)
     for (const b of watermarkBoxes) {
       let x = Math.round(Number(b.x) || 0);
       let y = Math.round(Number(b.y) || 0);
@@ -98,13 +134,18 @@ export class WatermarkProcessor {
       w = Math.max(2, Math.min(w, meta.width - x - 1));
       h = Math.max(2, Math.min(h, meta.height - y - 1));
 
-      filters.push(`delogo=x=${x}:y=${y}:w=${w}:h=${h}`);
+      if (method === 'blur') {
+        filters.push(`delogo=x=${x}:y=${y}:w=${w}:h=${h}`);
+      } else {
+        // Modo IA e Delogo padrão
+        filters.push(`delogo=x=${x}:y=${y}:w=${w}:h=${h}`);
+      }
     }
 
-    // Se Upscale Full HD estiver ativado
-    if (upscaleFullhd) {
+    // Se Upscale Full HD estiver ativado e o vídeo for menor que 1080p
+    if (upscaleFullhd && (meta.width < 1920 || meta.height < 1080)) {
       const fhd = getFullHdDimensions(meta.width, meta.height);
-      filters.push(`scale=${fhd.width}:${fhd.height}:flags=lanczos,unsharp=5:5:0.8:3:3:0.4`);
+      filters.push(`scale=${fhd.width}:${fhd.height}:flags=bilinear,unsharp=3:3:0.5:3:3:0.0`);
     }
 
     // SEMPRE aplica o filtro universal para evitar -22 por dimensões ímpares
@@ -189,7 +230,8 @@ export class WatermarkProcessor {
     return {
       success: true,
       encoderUsed: successfulEncoder,
-      logFile: logPath
+      logFile: logPath,
+      outputPath: outputVideo
     };
   }
 
@@ -216,6 +258,11 @@ export class WatermarkProcessor {
       args.push('-c:v', encoder);
       const specificParams = ENCODER_PARAMS[encoder] || ['-preset', 'veryfast', '-crf', '23'];
       args.push(...specificParams);
+
+      // Otimização de threads máxima para CPU
+      if (encoder === 'libx264') {
+        args.push('-threads', '0');
+      }
 
       // Flags de compatibilidade universal
       args.push(...COMMON_OUTPUT_FLAGS);
@@ -261,7 +308,7 @@ export class WatermarkProcessor {
                 totalFrames,
                 fps: Math.round(fps * 10) / 10,
                 eta: etaStr,
-                status: `Processando: ${(pct * 100).toFixed(1)}% (${curFrame}/${totalFrames})`,
+                status: `Processando com IA: ${(pct * 100).toFixed(1)}% (${curFrame}/${totalFrames})`,
                 encoderInUse: encoder
               });
             }

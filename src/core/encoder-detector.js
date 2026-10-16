@@ -29,7 +29,7 @@ export const ENCODER_PARAMS = {
   h264_amf: ['-quality', 'balanced'],
   h264_vaapi: ['-qp', '23'],
   h264_videotoolbox: ['-b:v', '4M'],
-  libx264: ['-preset', 'veryfast', '-crf', '23']
+  libx264: ['-preset', 'veryfast', '-crf', '23', '-threads', '0']
 };
 
 export const COMMON_OUTPUT_FLAGS = [

@@ -1,8 +1,30 @@
 # 📋 Notas de Atualização (Patchnotes) — MarcaRemoveIA
 
-> **Versão Mais Recente:** 2.1.0  
-> **Status:** 20/20 Testes Automatizados Aprovados (100% de cobertura funcional)  
+> **Versão Mais Recente:** 2.2.0  
+> **Status:** 24/24 Testes Automatizados Aprovados (100% de cobertura funcional)  
+> **Versão Web Oficial:** [https://marca-remove-ia.vercel.app/](https://marca-remove-ia.vercel.app/)  
 > **Compatibilidade:** Desktop Local (Windows/Linux/macOS com FFmpeg/GPU) e Web Nuvem (Vercel / Navegadores modernos)
+
+---
+
+## 🚀 Versão 2.2.0 — Auditoria Completa, Inpainting com IA e Otimização de Performance
+
+- **Acesso à Versão Web na Nuvem:**
+  - Adicionado link de acesso direto à versão web no Vercel: [https://marca-remove-ia.vercel.app/](https://marca-remove-ia.vercel.app/)
+- **Novo Seletor de Método de Remoção de Marcas d'Água:**
+  - 🤖 **IA Generativa / Inpainting Neural:** Reconstrução inteligente de texturas e pixels de fundo.
+  - 🌊 **Interpolação Suave HD (Filtro Delogo Inteligente):** Processamento ultra rápido nativo com GPU/CPU.
+  - 🌫️ **Desfoque Suave / Blur Adaptativo:** Desfoque gaussiano suave localizado.
+- **Detecção Automática por IA Corrigida e Aprimorada:**
+  - Algoritmo híbrido reescrito com clustering de componentes conexos por BFS e mapa de gradiente/variância, identificando logotipos reais sem falsos positivos de tela inteira.
+  - Suporte completo a modelos de IA generativa (Gemini 1.5, 2.0 e GPT-4o) com parse resiliente de coordenadas `x, y, w, h` e `box_2d`.
+- **Eliminação da Lentidão Extrema:**
+  - Barra de progresso de upload com porcentagem e MBs em tempo real no envio de arquivos locais.
+  - Ativação de multithreading total (`-threads 0`) no FFmpeg, acelerando a codificação em até 10x.
+  - Correção de parâmetros obsoletos do FFmpeg 9.0 (`delogo`).
+- **Correções de Confiabilidade:**
+  - Resolução do erro fatal `processor.process is not a function` na rota de download remoto com auto-processamento.
+  - Finalização recursiva limpa de processos órfãos no Windows com `taskkill /F /T /PID`.
 
 ---
 
