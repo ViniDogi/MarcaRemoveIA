@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MarcaRemoveIA - Removedor de Marca d'Água com IA e Regeneração de Pixels</title>
+  <title>MarcaRemoveIA - Removedor de Marca d'Água & Editor de Vídeo</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
+  <link rel="alternate icon" href="/logo.svg">
   <!-- Tailwind CSS via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,23 +14,18 @@
   <style>
     body {
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      transition: background-color 0.3s ease, color 0.3s ease;
     }
     .font-mono-code {
       font-family: 'JetBrains Mono', monospace;
     }
     .glass-card {
-      background: rgba(255, 255, 255, 0.88);
+      background: rgba(255, 255, 255, 0.90);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(224, 242, 254, 0.9);
       box-shadow: 0 10px 30px -5px rgba(2, 132, 199, 0.07), 0 4px 6px -2px rgba(2, 132, 199, 0.03);
-    }
-    .glass-card-hover {
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    .glass-card-hover:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 16px 36px -6px rgba(2, 132, 199, 0.12), 0 6px 12px -2px rgba(2, 132, 199, 0.04);
+      transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
     }
     .canvas-container {
       position: relative;
@@ -39,9 +36,10 @@
       top: 0;
       left: 0;
       cursor: crosshair;
+      z-index: 10;
     }
-    .selection-glow {
-      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.35);
+    input[type=range] {
+      accent-color: #0284c7;
     }
     @keyframes pulse-subtle {
       0%, 100% { opacity: 1; transform: scale(1); }
@@ -50,53 +48,134 @@
     .animate-pulse-subtle {
       animation: pulse-subtle 3s infinite ease-in-out;
     }
+
+    /* ========================================== */
+    /* MODO NOTURNO (DARK MODE) - AZUL E CINZA    */
+    /* ========================================== */
+    html.dark body {
+      background: linear-gradient(135deg, #070c18 0%, #0b1326 40%, #101c33 100%) !important;
+      color: #f1f5f9 !important;
+    }
+    html.dark .glass-card {
+      background: rgba(15, 23, 42, 0.88) !important;
+      border: 1px solid rgba(30, 58, 138, 0.45) !important;
+      box-shadow: 0 12px 36px -6px rgba(0, 0, 0, 0.6), 0 4px 10px -2px rgba(30, 58, 138, 0.2) !important;
+    }
+    html.dark header {
+      background: rgba(11, 19, 38, 0.92) !important;
+      border-color: rgba(30, 58, 138, 0.35) !important;
+    }
+    html.dark h1, html.dark h2, html.dark h3, html.dark h4, html.dark .text-slate-900 {
+      color: #f8fafc !important;
+    }
+    html.dark .text-slate-800, html.dark .text-slate-700 {
+      color: #e2e8f0 !important;
+    }
+    html.dark .text-slate-600, html.dark .text-slate-500 {
+      color: #94a3b8 !important;
+    }
+    html.dark .text-slate-400 {
+      color: #64748b !important;
+    }
+    html.dark .bg-white {
+      background-color: #141f33 !important;
+      color: #f8fafc !important;
+      border-color: rgba(30, 58, 138, 0.45) !important;
+    }
+    html.dark .bg-slate-50 {
+      background-color: #0d1527 !important;
+      border-color: #1e293b !important;
+      color: #cbd5e1 !important;
+    }
+    html.dark .bg-sky-50, html.dark .bg-sky-50\/40, html.dark .bg-sky-50\/60 {
+      background-color: rgba(14, 55, 99, 0.25) !important;
+      border-color: rgba(56, 189, 248, 0.25) !important;
+      color: #7dd3fc !important;
+    }
+    html.dark .bg-sky-100\/70 {
+      background-color: rgba(15, 23, 42, 0.85) !important;
+      border-color: rgba(30, 58, 138, 0.5) !important;
+    }
+    html.dark .border-sky-100, html.dark .border-sky-200, html.dark .border-sky-200\/80, html.dark .border-sky-200\/90 {
+      border-color: rgba(30, 58, 138, 0.45) !important;
+    }
+    html.dark input[type="text"],
+    html.dark input[type="password"],
+    html.dark input[type="number"],
+    html.dark select,
+    html.dark textarea {
+      background-color: #0b1326 !important;
+      color: #f8fafc !important;
+      border-color: #1e3a8a !important;
+    }
+    html.dark .bg-slate-900\/5 {
+      background-color: rgba(11, 19, 38, 0.7) !important;
+      border-color: rgba(30, 58, 138, 0.35) !important;
+    }
+    html.dark .timeline-track {
+      background: #090e1c !important;
+      border-color: #1e3a8a !important;
+    }
   </style>
 </head>
 <body class="bg-gradient-to-br from-[#f0f7ff] via-[#f8fafc] to-[#e0f2fe] text-slate-800 min-h-screen flex flex-col selection:bg-sky-200 selection:text-sky-900">
 
-  <!-- Header Suave em Branco e Azul Claro -->
-  <header class="bg-white/80 backdrop-blur-md border-b border-sky-100 px-6 py-3.5 flex items-center justify-between shadow-sm sticky top-0 z-40">
-    <div class="flex items-center space-x-3.5">
-      <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-500 via-sky-400 to-cyan-300 flex items-center justify-center font-extrabold text-xl shadow-md shadow-sky-500/20 text-white">
-        ✨
+  <!-- Header com Abas Principais e Controles -->
+  <header class="bg-white/85 backdrop-blur-md border-b border-sky-100 px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between shadow-sm sticky top-0 z-40 gap-3">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-500 via-sky-400 to-cyan-300 flex items-center justify-center shadow-md shadow-sky-500/20 overflow-hidden p-1.5 transition-transform hover:scale-105">
+        <img src="/logo.svg" alt="MarcaRemoveIA Logo" class="w-full h-full object-contain filter drop-shadow">
       </div>
       <div>
-        <h1 class="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2">
-          MarcaRemoveIA <span class="text-[11px] bg-sky-100 text-sky-700 font-semibold px-2.5 py-0.5 rounded-full border border-sky-200">Gemini & WaveSpeed AI</span>
+        <h1 class="text-base sm:text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2">
+          MarcaRemoveIA <span class="text-[11px] bg-sky-100 text-sky-700 font-semibold px-2 py-0.5 rounded-full border border-sky-200">Pro Studio</span>
         </h1>
-        <p class="text-xs text-slate-500">Remoção de marca d'água com regeneração de pixels pixel a pixel</p>
+        <p class="text-[11px] text-slate-500 hidden sm:block">Inpainting de Alta Fidelidade & Editor de Vídeo Integrado</p>
       </div>
     </div>
+
+    <!-- Navegação de Abas Centrais -->
+    <nav class="flex items-center bg-sky-100/70 p-1 rounded-2xl border border-sky-200/80 text-xs font-bold shadow-inner">
+      <button id="navTabInpaint" onclick="switchMainTab('inpainting')" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white text-sky-700 shadow-sm transition">
+        <span>✨</span> <span>Remover Marcas</span>
+      </button>
+      <button id="navTabEditor" onclick="switchMainTab('editor')" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-slate-600 hover:text-sky-800 transition">
+        <span>🎬</span> <span>Editor de Vídeo</span>
+      </button>
+      <button id="navTabGallery" onclick="switchMainTab('gallery')" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-slate-600 hover:text-sky-800 transition">
+        <span>📁</span> <span>Mídias Salvas</span>
+        <span id="headerGalleryBadge" class="bg-sky-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold ml-0.5">0</span>
+      </button>
+    </nav>
     
-    <div class="flex items-center space-x-3">
+    <div class="flex items-center space-x-2">
+      <!-- Dark Mode Toggle Button -->
+      <button id="themeToggleBtn" onclick="toggleTheme()" class="text-xs bg-white hover:bg-sky-50 text-slate-700 hover:text-sky-700 px-3 py-1.5 rounded-2xl border border-sky-200 transition-all flex items-center gap-1.5 shadow-sm font-medium" title="Alternar Modo Noturno / Claro">
+        <span id="themeToggleIcon">🌙</span>
+        <span id="themeToggleText" class="hidden sm:inline">Modo Noturno</span>
+      </button>
+
       <!-- Hardware / Server Badge -->
-      <div id="hwStatusBadge" class="hidden sm:flex items-center gap-2 text-xs bg-sky-50 text-sky-700 px-3 py-1.5 rounded-full border border-sky-200 font-medium shadow-sm">
+      <div id="hwStatusBadge" class="hidden md:flex items-center gap-1.5 text-xs bg-sky-50 text-sky-700 px-3 py-1.5 rounded-full border border-sky-200 font-medium shadow-sm">
         <span class="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span>
         <span id="hwStatusText">Motor IA Ativo</span>
       </div>
 
-      <button onclick="openConfigModal()" class="text-xs bg-white hover:bg-sky-50 text-slate-700 hover:text-sky-700 px-3.5 py-2 rounded-2xl border border-sky-200 transition-all flex items-center gap-1.5 shadow-sm font-medium">
+      <button onclick="openConfigModal()" class="text-xs bg-white hover:bg-sky-50 text-slate-700 hover:text-sky-700 px-3 py-1.5 rounded-2xl border border-sky-200 transition-all flex items-center gap-1.5 shadow-sm font-medium">
         ⚙️ Configurar IA
       </button>
 
-      <span id="serverStatusBadge" class="text-xs text-sky-700 font-medium bg-sky-50 px-3 py-1.5 rounded-full border border-sky-200 flex items-center gap-1.5 shadow-sm">
+      <span id="serverStatusBadge" class="text-xs text-sky-700 font-medium bg-sky-50 px-2.5 py-1.5 rounded-full border border-sky-200 flex items-center gap-1.5 shadow-sm">
         <span id="serverStatusDot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
-        <span id="serverStatusText">Conectado</span>
+        <span id="serverStatusText">Online</span>
       </span>
     </div>
   </header>
 
-  <!-- Banner de Aviso se FFmpeg não for encontrado -->
-  <div id="ffmpegAlertBanner" class="hidden bg-sky-500/10 border-b border-sky-500/20 px-6 py-2.5 text-xs text-sky-900 flex items-center justify-between">
-    <div class="flex items-center gap-2">
-      <span class="text-base">💡</span>
-      <span id="ffmpegAlertText">FFmpeg detectado. Para aceleração nativa de vídeo, certifique-se que o backend local está em execução.</span>
-    </div>
-    <button onclick="dismissFfmpegBanner()" class="text-sky-700 hover:text-sky-900 font-bold text-sm px-2">&times;</button>
-  </div>
-
-  <!-- Main Content: Layout Simplificado em 2 Colunas -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+  <!-- ========================================== -->
+  <!-- ABA 1: REMOVER MARCAS D'ÁGUA (INPAINTING) -->
+  <!-- ========================================== -->
+  <main id="viewInpainting" class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
 
     <!-- Coluna Esquerda: Fluxo Simplificado em 3 Passos (5 colunas) -->
     <div class="lg:col-span-5 flex flex-col space-y-4">
@@ -173,7 +252,7 @@
             ✨ Detectar com IA
           </button>
           <button onclick="clearBoxes()" class="bg-white hover:bg-sky-50 text-slate-600 hover:text-slate-900 font-semibold text-xs py-2.5 px-3 rounded-2xl border border-sky-200 transition flex items-center justify-center gap-1.5">
-            🗑️ Limpar
+            🗑️ Limpar Seleções
           </button>
         </div>
 
@@ -212,7 +291,7 @@
       <div class="glass-card rounded-3xl p-5 shadow-sm space-y-3">
         <label class="text-xs font-bold text-sky-800 uppercase tracking-wider flex items-center gap-1.5">
           <span class="w-5 h-5 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center text-[11px] font-black">3</span>
-          Motor de Remoção com IA
+          Motor de Inpainting & Reconstrução
         </label>
 
         <!-- Seleção de IA Clara e Direta -->
@@ -221,8 +300,8 @@
             <div class="flex items-center gap-2.5">
               <input type="radio" name="aiEngine" value="gemini" checked class="text-sky-600 focus:ring-0 w-4 h-4">
               <div>
-                <p class="text-xs font-bold text-slate-800">🌟 Google Gemini IA</p>
-                <p class="text-[11px] text-slate-500">Regeneração pixel a pixel de alta fidelidade sem borrão</p>
+                <p class="text-xs font-bold text-slate-800">🌟 Inpainting Neural & Estabilidade Temporal</p>
+                <p class="text-[11px] text-slate-500">Reconstrução textural nítida sem borrões e sem piscadas entre frames</p>
               </div>
             </div>
             <span class="text-[10px] bg-sky-500 text-white font-bold px-2 py-0.5 rounded-full">Recomendado</span>
@@ -243,35 +322,34 @@
             <div class="flex items-center gap-2.5">
               <input type="radio" name="aiEngine" value="exemplar" class="text-sky-600 focus:ring-0 w-4 h-4">
               <div>
-                <p class="text-xs font-bold text-slate-800">⚡ Inpainting Neural Local HD</p>
-                <p class="text-[11px] text-slate-500">Síntese de texturas exemplar no dispositivo (offline)</p>
+                <p class="text-xs font-bold text-slate-800">⚡ Inpainting Local HD (Offline)</p>
+                <p class="text-[11px] text-slate-500">Síntese de texturas exemplar sem conexão externa</p>
               </div>
             </div>
             <span class="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-full">Local</span>
           </label>
         </div>
 
-        <!-- Opções Avançadas Colapsáveis (Reduzindo a quantidade visível de opções) -->
+        <!-- Opções Avançadas Colapsáveis -->
         <details class="text-xs text-slate-600 border border-sky-100 rounded-2xl p-2.5 bg-white/60">
           <summary class="cursor-pointer font-bold text-sky-700 select-none flex justify-between items-center">
-            <span>⚙️ Opções Avançadas de Exportação</span>
+            <span>⚙️ Preservação de Áudio e Exportação</span>
             <span class="text-[10px] text-slate-400">Clique para expandir</span>
           </summary>
           <div class="pt-2.5 space-y-2 text-xs">
             <label class="flex items-center space-x-2 cursor-pointer">
               <input type="checkbox" id="chkKeepAudio" checked class="rounded text-sky-500 border-sky-300 focus:ring-0">
-              <span>Preservar áudio original de alta fidelidade</span>
+              <span class="font-medium text-slate-700">Copiar faixa de áudio original sem perda (-c:a copy)</span>
             </label>
             <label class="flex items-center space-x-2 cursor-pointer">
               <input type="checkbox" id="chkUpscale" class="rounded text-sky-500 border-sky-300 focus:ring-0">
-              <span>Upscale e nitidez automática Full HD</span>
+              <span>Upscale e nitidez automática Full HD (1080p)</span>
             </label>
             <div>
               <label class="block text-[11px] text-slate-500 mb-0.5">Aceleração de Hardware:</label>
               <select id="hwAccelSelect" class="w-full bg-white border border-sky-200 rounded-xl p-1.5 text-xs text-slate-700">
                 <option value="auto">Automático (Mais rápido com fallback)</option>
-                <option value="client_canvas">Navegador Web (Canvas)</option>
-                <option value="libx264">CPU Universal (libx264)</option>
+                <option value="libx264">CPU Universal (libx264 -crf 18 -preset slow)</option>
                 <option value="h264_nvenc">NVIDIA NVENC</option>
                 <option value="h264_qsv">Intel QuickSync</option>
                 <option value="h264_amf">AMD AMF</option>
@@ -298,17 +376,28 @@
 
     </div>
 
-    <!-- Coluna Direita: Player, Canvas e Entrega Final (7 colunas) -->
+    <!-- Coluna Direita: Player com Controles de Alta Precisão & Entrega Final -->
     <div class="lg:col-span-7 flex flex-col space-y-4">
       
       <!-- Container do Visualizador Interativo -->
       <div class="glass-card rounded-3xl p-5 shadow-sm flex-1 flex flex-col justify-between">
         
-        <div class="flex justify-between items-center mb-2">
+        <div class="flex flex-wrap justify-between items-center mb-2 gap-2">
           <div class="flex items-center gap-2">
             <span class="text-xs font-bold text-slate-800">Visualizador Interativo</span>
             <span id="resolutionBadge" class="hidden text-[10px] bg-sky-100 text-sky-700 font-semibold px-2 py-0.5 rounded-full font-mono-code">1920x1080</span>
           </div>
+
+          <!-- Seletor de Modo: Desenhar Marca vs Assistir/Controles (Resolve conflito de clique do Canvas!) -->
+          <div class="flex items-center gap-1 bg-sky-100/80 p-0.5 rounded-xl text-xs">
+            <button id="btnModeDraw" onclick="setPlayerInteractionMode('draw')" class="px-2.5 py-1 rounded-lg font-bold bg-white text-sky-700 shadow-sm transition flex items-center gap-1">
+              <span>✏️</span> <span>Marcar</span>
+            </button>
+            <button id="btnModeWatch" onclick="setPlayerInteractionMode('watch')" class="px-2.5 py-1 rounded-lg font-semibold text-slate-600 hover:text-sky-800 transition flex items-center gap-1">
+              <span>▶️</span> <span>Assistir / Play</span>
+            </button>
+          </div>
+
           <!-- Controles de Comparação de Entrega -->
           <div id="comparisonToggleWrap" class="hidden flex items-center gap-1 bg-sky-100/70 p-1 rounded-full text-xs">
             <button id="btnShowOriginal" onclick="toggleComparisonView('original')" class="px-2.5 py-1 rounded-full font-semibold text-slate-600 hover:text-sky-800 transition">Antes</button>
@@ -317,16 +406,52 @@
         </div>
 
         <!-- Área de Vídeo / Canvas / Imagem -->
-        <div class="flex-1 min-h-[380px] bg-slate-900/5 rounded-2xl border border-sky-100 flex items-center justify-center p-2 relative overflow-hidden">
-          <div id="canvasWrapper" class="canvas-container max-w-full flex items-center justify-center">
-            <video id="videoPreview" controls class="max-h-[460px] max-w-full rounded-xl hidden shadow-md" onloadedmetadata="initCanvas()"></video>
-            <img id="imagePreview" src="" alt="Imagem" class="max-h-[460px] max-w-full rounded-xl hidden shadow-md object-contain" onload="initImageCanvas()">
+        <div class="flex-1 min-h-[380px] bg-slate-900/5 rounded-2xl border border-sky-100 flex flex-col items-center justify-center p-2 relative overflow-hidden">
+          <div id="canvasWrapper" class="canvas-container max-w-full flex items-center justify-center relative">
+            <video id="videoPreview" class="max-h-[440px] max-w-full rounded-xl hidden shadow-md" onloadedmetadata="initCanvas()" playsinline></video>
+            <img id="imagePreview" src="" alt="Imagem" class="max-h-[440px] max-w-full rounded-xl hidden shadow-md object-contain" onload="initImageCanvas()">
             <canvas id="drawCanvas"></canvas>
             
             <div id="placeholderPreview" class="text-center py-20 text-slate-400">
               <span class="text-5xl block mb-2 animate-pulse-subtle">🎬</span>
               <p class="text-sm font-bold text-slate-700">Carregue um vídeo ou imagem</p>
               <p class="text-xs text-slate-400 mt-1">Arraste o mouse sobre a marca para selecionar com precisão</p>
+            </div>
+          </div>
+
+          <!-- Barra de Controles Nativos Aperfeiçoados (Play, Pause, Seek, Volume) -->
+          <div id="playerControlsBar" class="hidden w-full mt-3 bg-white/95 border border-sky-200/90 rounded-2xl p-2.5 shadow-sm flex flex-col gap-2">
+            <!-- Barra de Progresso / Seek Slider -->
+            <div class="flex items-center gap-2">
+              <span id="playerCurrentTime" class="text-[11px] font-mono-code font-bold text-sky-800 min-w-[38px]">00:00</span>
+              <input type="range" id="playerSeekBar" min="0" max="100" value="0" step="0.1" oninput="handlePlayerSeek(this.value)" class="flex-1 h-1.5 bg-sky-100 rounded-lg cursor-pointer">
+              <span id="playerDuration" class="text-[11px] font-mono-code text-slate-500 min-w-[38px]">00:00</span>
+            </div>
+            
+            <!-- Botões de Ação do Player -->
+            <div class="flex items-center justify-between pt-0.5">
+              <div class="flex items-center gap-1.5">
+                <button id="btnPlayerPlayPause" onclick="togglePlayerPlay()" class="w-8 h-8 rounded-xl bg-sky-500 hover:bg-sky-600 text-white flex items-center justify-center text-sm font-bold shadow-sm transition">
+                  ▶
+                </button>
+                <button onclick="rewindPlayer(5)" class="w-7 h-7 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-700 flex items-center justify-center text-xs font-bold transition" title="Voltar 5s">
+                  -5s
+                </button>
+                <button onclick="forwardPlayer(5)" class="w-7 h-7 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-700 flex items-center justify-center text-xs font-bold transition" title="Avançar 5s">
+                  +5s
+                </button>
+              </div>
+
+              <!-- Volume e Opções -->
+              <div class="flex items-center gap-2">
+                <button id="btnPlayerMute" onclick="togglePlayerMute()" class="text-xs text-slate-600 hover:text-sky-700">
+                  🔊
+                </button>
+                <input type="range" id="playerVolumeBar" min="0" max="1" step="0.05" value="1" oninput="handlePlayerVolume(this.value)" class="w-16 h-1.5 bg-sky-100 rounded-lg cursor-pointer">
+                <button onclick="togglePlayerFullscreen()" class="w-7 h-7 rounded-xl bg-slate-100 hover:bg-sky-50 text-slate-600 hover:text-sky-700 flex items-center justify-center text-xs font-bold transition" title="Tela Cheia">
+                  ⛶
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -358,20 +483,23 @@
             </div>
             <div>
               <h3 class="text-sm font-bold text-slate-900">Processamento Concluído com Sucesso!</h3>
-              <p class="text-xs text-slate-500">A marca d'água foi removida e os pixels reconstruídos de forma harmoniosa.</p>
+              <p class="text-xs text-slate-500">A marca d'água foi removida com consistência temporal e salva no Banco de Mídias.</p>
             </div>
           </div>
           <span class="text-xs bg-emerald-100 text-emerald-800 font-bold px-3 py-1 rounded-full border border-emerald-200">
-            Pronto para Download
+            Salvo na Galeria ✅
           </span>
         </div>
 
-        <div class="flex flex-col sm:flex-row gap-2 pt-1">
+        <div class="flex flex-wrap gap-2 pt-1">
           <a id="btnDownloadFinal" href="#" download class="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-extrabold text-xs py-3 px-4 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2">
             📥 Baixar Arquivo Limpo com IA
           </a>
           <button onclick="playCleanResult()" id="btnPlayClean" class="bg-white hover:bg-sky-50 text-sky-700 border border-sky-200 font-bold text-xs py-3 px-4 rounded-2xl transition shadow-sm flex items-center justify-center gap-1.5">
             ▶️ Assistir no Navegador
+          </button>
+          <button onclick="sendCurrentCleanToEditor()" class="bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs py-3 px-4 rounded-2xl transition shadow-sm flex items-center justify-center gap-1.5">
+            ✂️ Abrir no Editor de Vídeo
           </button>
         </div>
       </div>
@@ -379,6 +507,479 @@
     </div>
 
   </main>
+
+
+  <!-- ========================================== -->
+  <!-- ABA 2: EDITOR DE VÍDEO INTEGRADO           -->
+  <!-- ========================================== -->
+  <main id="viewEditor" class="hidden flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-4">
+
+    <!-- Barra de Ferramentas Superior do Editor -->
+    <div class="glass-card rounded-3xl p-4 shadow-sm flex flex-wrap justify-between items-center gap-3">
+      <div>
+        <h2 class="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+          🎬 Estúdio de Edição de Vídeo
+        </h2>
+        <p class="text-[11px] text-slate-500">Corte, junte, recorte o enquadramento, separe áudio e adicione figurinhas ou sua própria marca d'água</p>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="openAddFromGalleryModal()" class="bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs px-3.5 py-2 rounded-2xl shadow-sm transition flex items-center gap-1.5">
+          ➕ Da Galeria
+        </button>
+        <label class="bg-white hover:bg-sky-50 text-slate-700 border border-sky-200 font-bold text-xs px-3.5 py-2 rounded-2xl shadow-sm transition flex items-center gap-1.5 cursor-pointer">
+          📁 Novo Vídeo
+          <input type="file" accept="video/*" class="hidden" onchange="handleEditorDirectUpload(this.files[0])">
+        </label>
+        <button onclick="extractAudioFromActiveEditorClip()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs px-3.5 py-2 rounded-2xl shadow-sm transition flex items-center gap-1.5" title="Separar a trilha de áudio do clipe e salvar em MP3">
+          🎵 Separar Áudio
+        </button>
+        <button onclick="splitActiveEditorClip()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-bold text-xs px-3 py-2 rounded-2xl shadow-sm transition flex items-center gap-1.5" title="Dividir o clipe no ponto atual da agulha">
+          ✂️ Dividir (Split)
+        </button>
+        <button onclick="clearEditorTimeline()" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-bold text-xs px-3 py-2 rounded-2xl shadow-sm transition flex items-center gap-1.5" title="Limpar todos os clipes da linha do tempo">
+          🗑️ Limpar
+        </button>
+      </div>
+    </div>
+
+    <!-- Grade Principal: Player & Timeline (Esquerda 7 colunas) + Painel de Ferramentas & Exportação (Direita 5 colunas) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      
+      <!-- Coluna Esquerda: Player de Prévia & Linha do Tempo Visual (7 colunas) -->
+      <div class="lg:col-span-7 flex flex-col space-y-4">
+        
+        <!-- Player de Prévia com Overlay Canvas -->
+        <div class="glass-card rounded-3xl p-4 shadow-sm space-y-3">
+          <div class="flex justify-between items-center text-xs">
+            <span class="font-bold text-slate-800 flex items-center gap-1.5">
+              <span>👁️</span> Prévia Interativa
+            </span>
+            <span id="editorPreviewClipTitle" class="text-[11px] text-sky-700 font-semibold truncate max-w-[250px]">Nenhum clipe selecionado</span>
+          </div>
+
+          <!-- Container do Vídeo + Canvas de Prévia de Overlays / Crop -->
+          <div class="bg-slate-950/80 rounded-2xl border border-sky-100/50 flex flex-col items-center justify-center p-2 relative overflow-hidden min-h-[280px]">
+            <div id="editorPlayerWrap" class="relative inline-block max-w-full">
+              <video id="editorVideoPreview" class="max-h-[340px] max-w-full rounded-xl hidden shadow-md"></video>
+              <canvas id="editorOverlayCanvas" class="absolute top-0 left-0 w-full h-full pointer-events-none rounded-xl"></canvas>
+            </div>
+            <div id="editorPreviewPlaceholder" class="text-center py-16 text-slate-400">
+              <span class="text-4xl block mb-2">🎬</span>
+              <p class="text-xs font-bold text-slate-300">Prévia do Editor de Vídeo</p>
+              <p class="text-[11px] text-slate-400 mt-0.5">Adicione vídeos da galeria ou envie arquivos para cortar, unir e personalizar</p>
+            </div>
+          </div>
+
+          <!-- Barra de Transporte e Controles de Reprodução da Timeline -->
+          <div class="bg-slate-50 dark:bg-slate-900 border border-sky-100 rounded-2xl p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div class="flex items-center gap-1.5">
+              <button onclick="editorSeekTo(0)" class="p-1.5 px-2 bg-white hover:bg-sky-50 text-slate-700 rounded-xl border border-sky-200 font-bold" title="Voltar ao Início">
+                ⏮️
+              </button>
+              <button id="btnEditorPlayPause" onclick="toggleEditorPlayPause()" class="p-1.5 px-3 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-bold shadow-sm flex items-center gap-1">
+                <span id="editorPlayIcon">▶️</span> Play
+              </button>
+              <button onclick="editorSeekToEnd()" class="p-1.5 px-2 bg-white hover:bg-sky-50 text-slate-700 rounded-xl border border-sky-200 font-bold" title="Ir para o Final">
+                ⏭️
+              </button>
+            </div>
+
+            <!-- Tempo Digital -->
+            <div class="font-mono-code text-[11px] font-bold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-xl border border-sky-200">
+              <span id="editorCurrentTimeCode">00:00.0</span> / <span id="editorTotalTimeCode">00:00.0</span>
+            </div>
+
+            <!-- Slider de Seek da Timeline -->
+            <div class="flex-1 min-w-[140px] flex items-center gap-2">
+              <input type="range" id="editorTimelineSeeker" min="0" max="100" value="0" step="0.1" oninput="onEditorTimelineSeek(this.value)" class="w-full cursor-pointer h-2 bg-sky-100 rounded-lg">
+            </div>
+
+            <!-- Botão Mute / Áudio -->
+            <button onclick="toggleEditorAudioMute()" id="btnEditorAudioMute" class="p-1.5 px-2.5 bg-white hover:bg-sky-50 text-slate-700 rounded-xl border border-sky-200 font-bold" title="Silenciar / Ativar Áudio da Prévia">
+              🔊
+            </button>
+          </div>
+
+        </div>
+
+        <!-- LINHA DO TEMPO VISUAL MULTI-TRACK -->
+        <div class="glass-card rounded-3xl p-4 shadow-sm space-y-3">
+          <div class="flex justify-between items-center">
+            <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              <span>🎞️</span> Linha do Tempo Visual (Timeline Multi-Track)
+            </span>
+            <span class="text-[10px] text-slate-400">Clique na régua para posicionar a agulha • Arraste os cortes</span>
+          </div>
+
+          <!-- Container da Timeline com Régua e Trilhas -->
+          <div class="timeline-track bg-slate-900 border border-sky-200/50 rounded-2xl p-3 space-y-2 overflow-x-auto relative min-h-[140px]" id="timelineContainer" onclick="handleTimelineContainerClick(event)">
+            
+            <!-- Régua de Tempo (Ruler) -->
+            <div id="timelineRuler" class="h-6 relative border-b border-slate-700 flex items-end text-[10px] font-mono-code text-slate-400 select-none">
+              <!-- Marcadores de segundo gerados dinamicamente via JS -->
+            </div>
+
+            <!-- Agulha de Reprodução (Playhead) -->
+            <div id="timelinePlayhead" class="absolute top-2 bottom-2 w-0.5 bg-rose-500 shadow-md shadow-rose-500/50 z-20 pointer-events-none transition-all duration-75" style="left: 12px;">
+              <div class="w-3 h-3 bg-rose-500 rounded-full -ml-[5px] -mt-1 shadow-sm"></div>
+            </div>
+
+            <!-- Trilha 1: Clipes de Vídeo -->
+            <div class="space-y-1">
+              <div class="flex items-center justify-between text-[10px] font-bold text-slate-400">
+                <span>Trilha de Vídeo (Clipes em Sequência)</span>
+                <span id="timelineClipsCountBadge" class="text-sky-400">0 clipes</span>
+              </div>
+              <div id="timelineVideoTrack" class="h-16 bg-slate-800/80 rounded-xl border border-slate-700 flex items-center p-1 gap-1.5 relative overflow-hidden">
+                <span id="timelineEmptyTrackHint" class="text-[11px] text-slate-500 mx-auto">Adicione vídeos da galeria para compor a timeline</span>
+              </div>
+            </div>
+
+            <!-- Trilha 2: Figurinhas / Marca d'Água -->
+            <div class="space-y-1 pt-1">
+              <div class="flex items-center justify-between text-[10px] font-bold text-slate-400">
+                <span>Trilha de Adesivos & Marca d'Água</span>
+                <span id="timelineOverlaysCountBadge" class="text-sky-400">0 ativos</span>
+              </div>
+              <div id="timelineOverlayTrack" class="h-9 bg-slate-800/50 rounded-xl border border-slate-700/80 flex items-center p-1 gap-1.5 relative overflow-hidden">
+                <span id="timelineEmptyOverlaysHint" class="text-[10px] text-slate-500 mx-auto">Nenhum adesivo adicionado</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Lista Detalhada de Clipes da Timeline com Ajuste de Corte e Velocidade -->
+          <div id="editorClipsList" class="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+            <!-- Placeholder de timeline vazia -->
+            <div id="editorEmptyPlaceholder" class="text-center py-6 border-2 border-dashed border-sky-200 rounded-2xl bg-sky-50/40">
+              <span class="text-3xl block mb-1">🎞️</span>
+              <p class="text-xs font-bold text-slate-700">Nenhum clipe na Linha do Tempo</p>
+              <p class="text-[11px] text-slate-400 mt-0.5">Clique em "➕ Da Galeria" para começar a editar!</p>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Coluna Direita: Painel de Ferramentas & Exportação (5 colunas) -->
+      <div class="lg:col-span-5 flex flex-col space-y-4">
+        
+        <!-- Navegador de Ferramentas do Editor (Sub-Tabs) -->
+        <div class="glass-card rounded-3xl p-4 shadow-sm space-y-4">
+          
+          <div class="grid grid-cols-4 gap-1 p-1 bg-sky-100/60 dark:bg-slate-900 rounded-2xl text-[11px] font-bold text-center">
+            <button id="subTabBtnClips" onclick="switchEditorToolTab('clips')" class="py-1.5 px-1 rounded-xl bg-white text-sky-700 shadow-sm transition">
+              ✂️ Clipes
+            </button>
+            <button id="subTabBtnCrop" onclick="switchEditorToolTab('crop')" class="py-1.5 px-1 rounded-xl text-slate-600 hover:text-sky-700 transition">
+              📐 Recortar
+            </button>
+            <button id="subTabBtnStickers" onclick="switchEditorToolTab('stickers')" class="py-1.5 px-1 rounded-xl text-slate-600 hover:text-sky-700 transition">
+              🎨 Adesivos
+            </button>
+            <button id="subTabBtnWatermark" onclick="switchEditorToolTab('watermark')" class="py-1.5 px-1 rounded-xl text-slate-600 hover:text-sky-700 transition">
+              🛡️ Marca
+            </button>
+          </div>
+
+          <!-- SUB-ABA 1: CLIPES & MESCLAR -->
+          <div id="editorToolClips" class="space-y-3">
+            <div class="flex justify-between items-center text-xs">
+              <span class="font-bold text-slate-800">Mesclar & Ordenar Clipes</span>
+              <span class="text-[11px] text-slate-400">Una vídeos da galeria</span>
+            </div>
+            <p class="text-[11px] text-slate-500 leading-relaxed bg-sky-50 dark:bg-slate-900 p-2.5 rounded-xl border border-sky-100">
+              💡 Os clipes organizados na linha do tempo serão unidos em sequência fluida e convertidos para o mesmo padrão de alta qualidade web (H.264 / yuv420p).
+            </p>
+          </div>
+
+          <!-- SUB-ABA 2: RECORTAR ENQUADRAMENTO (CROP) -->
+          <div id="editorToolCrop" class="hidden space-y-3">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold text-slate-800 flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="cropEnabledCheckbox" onchange="toggleCropEnabled(this.checked)" class="rounded text-sky-500 w-4 h-4">
+                <span>Ativar Recorte de Enquadramento</span>
+              </label>
+            </div>
+
+            <!-- Presets de Proporção de Recorte -->
+            <div class="space-y-1">
+              <label class="block text-[11px] font-bold text-slate-700">Formato / Proporção de Corte:</label>
+              <div class="grid grid-cols-4 gap-1 text-[11px]">
+                <button type="button" onclick="setCropPreset('16:9')" class="p-1.5 rounded-xl bg-white border border-sky-200 font-bold hover:bg-sky-50">16:9</button>
+                <button type="button" onclick="setCropPreset('9:16')" class="p-1.5 rounded-xl bg-white border border-sky-200 font-bold hover:bg-sky-50">9:16</button>
+                <button type="button" onclick="setCropPreset('1:1')" class="p-1.5 rounded-xl bg-white border border-sky-200 font-bold hover:bg-sky-50">1:1</button>
+                <button type="button" onclick="setCropPreset('4:5')" class="p-1.5 rounded-xl bg-white border border-sky-200 font-bold hover:bg-sky-50">4:5</button>
+              </div>
+            </div>
+
+            <!-- Sliders de Posição e Dimensão do Crop -->
+            <div class="space-y-2 pt-1 border-t border-sky-100 text-xs">
+              <div>
+                <div class="flex justify-between text-[11px] text-slate-600 mb-0.5">
+                  <span>Posição Horizontal (X):</span>
+                  <span id="cropValX">0%</span>
+                </div>
+                <input type="range" id="cropSliderX" min="0" max="80" value="0" oninput="updateCropValues()" class="w-full">
+              </div>
+
+              <div>
+                <div class="flex justify-between text-[11px] text-slate-600 mb-0.5">
+                  <span>Posição Vertical (Y):</span>
+                  <span id="cropValY">0%</span>
+                </div>
+                <input type="range" id="cropSliderY" min="0" max="80" value="0" oninput="updateCropValues()" class="w-full">
+              </div>
+
+              <div>
+                <div class="flex justify-between text-[11px] text-slate-600 mb-0.5">
+                  <span>Largura do Recorte:</span>
+                  <span id="cropValW">100%</span>
+                </div>
+                <input type="range" id="cropSliderW" min="20" max="100" value="100" oninput="updateCropValues()" class="w-full">
+              </div>
+
+              <div>
+                <div class="flex justify-between text-[11px] text-slate-600 mb-0.5">
+                  <span>Altura do Recorte:</span>
+                  <span id="cropValH">100%</span>
+                </div>
+                <input type="range" id="cropSliderH" min="20" max="100" value="100" oninput="updateCropValues()" class="w-full">
+              </div>
+            </div>
+          </div>
+
+          <!-- SUB-ABA 3: FIGURINHAS & ADESIVOS (STICKERS) -->
+          <div id="editorToolStickers" class="hidden space-y-3">
+            <div class="flex justify-between items-center text-xs">
+              <span class="font-bold text-slate-800">Catálogo de Figurinhas</span>
+              <label class="text-[11px] text-sky-600 hover:underline font-bold cursor-pointer">
+                📁 Upload PNG
+                <input type="file" accept="image/png,image/webp,image/gif" class="hidden" onchange="handleCustomStickerUpload(this.files[0])">
+              </label>
+            </div>
+
+            <!-- Emojis / Selos populares -->
+            <div class="grid grid-cols-5 gap-1.5 text-xl text-center">
+              <button onclick="addEmojiSticker('🔥', 'Fogo')" class="p-2 bg-white hover:bg-sky-50 border border-sky-200 rounded-xl shadow-sm transition">🔥</button>
+              <button onclick="addEmojiSticker('⭐', 'Estrela')" class="p-2 bg-white hover:bg-sky-50 border border-sky-200 rounded-xl shadow-sm transition">⭐</button>
+              <button onclick="addEmojiSticker('🚀', 'Foguete')" class="p-2 bg-white hover:bg-sky-50 border border-sky-200 rounded-xl shadow-sm transition">🚀</button>
+              <button onclick="addEmojiSticker('💯', 'Top 100')" class="p-2 bg-white hover:bg-sky-50 border border-sky-200 rounded-xl shadow-sm transition">💯</button>
+              <button onclick="addEmojiSticker('⚠️', 'Alerta')" class="p-2 bg-white hover:bg-sky-50 border border-sky-200 rounded-xl shadow-sm transition">⚠️</button>
+              <button onclick="addEmojiSticker('🎬', 'Cinema')" class="p-2 bg-white hover:bg-sky-50 border border-sky-200 rounded-xl shadow-sm transition">🎬</button>
+              <button onclick="addEmojiSticker('❤️', 'Coração')" class="p-2 bg-white hover:bg-sky-50 border border-sky-200 rounded-xl shadow-sm transition">❤️</button>
+              <button onclick="addEmojiSticker('🎯', 'Alvo')" class="p-2 bg-white hover:bg-sky-50 border border-sky-200 rounded-xl shadow-sm transition">🎯</button>
+              <button onclick="addEmojiSticker('✨', 'Brilho')" class="p-2 bg-white hover:bg-sky-50 border border-sky-200 rounded-xl shadow-sm transition">✨</button>
+              <button onclick="addEmojiSticker('👑', 'Coroa')" class="p-2 bg-white hover:bg-sky-50 border border-sky-200 rounded-xl shadow-sm transition">👑</button>
+            </div>
+
+            <!-- Lista de Adesivos Ativos no Vídeo -->
+            <div id="activeStickersList" class="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+              <p class="text-center py-4 text-[11px] text-slate-400">Nenhum adesivo posicionado ainda</p>
+            </div>
+          </div>
+
+          <!-- SUB-ABA 4: CRIAR SUA MARCA D'ÁGUA -->
+          <div id="editorToolWatermark" class="hidden space-y-3">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold text-slate-800 flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="watermarkEnabledCheckbox" onchange="toggleWatermarkEnabled(this.checked)" class="rounded text-sky-500 w-4 h-4">
+                <span>Estampar Marca d'Água no Vídeo</span>
+              </label>
+            </div>
+
+            <div class="space-y-2 text-xs">
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-0.5">Texto da Marca d'Água:</label>
+                <input type="text" id="watermarkTextInput" value="@meucanal_oficial" oninput="updateWatermarkValues()" placeholder="Ex: @meucanal" class="w-full bg-white border border-sky-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-800">
+              </div>
+
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-[11px] font-bold text-slate-700 mb-0.5">Cor do Texto:</label>
+                  <input type="color" id="watermarkColorInput" value="#38bdf8" oninput="updateWatermarkValues()" class="w-full h-8 rounded-xl cursor-pointer border border-sky-200">
+                </div>
+                <div>
+                  <label class="block text-[11px] font-bold text-slate-700 mb-0.5">Tamanho da Fonte:</label>
+                  <select id="watermarkFontSizeSelect" onchange="updateWatermarkValues()" class="w-full bg-white border border-sky-200 rounded-xl px-2 py-1.5 text-xs">
+                    <option value="22">Pequeno (22px)</option>
+                    <option value="34" selected>Médio (34px)</option>
+                    <option value="48">Grande (48px)</option>
+                    <option value="64">Extra Grande (64px)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex justify-between text-[11px] text-slate-600 mb-0.5">
+                  <span>Opacidade:</span>
+                  <span id="watermarkOpacityVal">85%</span>
+                </div>
+                <input type="range" id="watermarkOpacitySlider" min="20" max="100" value="85" oninput="updateWatermarkValues()" class="w-full">
+              </div>
+
+              <!-- Posições Rápidas -->
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Posição na Tela:</label>
+                <div class="grid grid-cols-3 gap-1 text-[11px]">
+                  <button type="button" onclick="setWatermarkPos('top-left')" class="p-1 rounded-lg bg-white border border-sky-200 font-bold hover:bg-sky-50">↖ Topo Esq</button>
+                  <button type="button" onclick="setWatermarkPos('center')" class="p-1 rounded-lg bg-white border border-sky-200 font-bold hover:bg-sky-50">🎯 Centro</button>
+                  <button type="button" onclick="setWatermarkPos('top-right')" class="p-1 rounded-lg bg-white border border-sky-200 font-bold hover:bg-sky-50">↗ Topo Dir</button>
+                  <button type="button" onclick="setWatermarkPos('bottom-left')" class="p-1 rounded-lg bg-white border border-sky-200 font-bold hover:bg-sky-50">↙ Rodapé Esq</button>
+                  <button type="button" onclick="setWatermarkPos('bottom-right')" id="btnWmPosBottomRight" class="p-1 rounded-lg bg-sky-500 text-white font-bold">↘ Rodapé Dir</button>
+                  <button type="button" onclick="setWatermarkPos('custom')" class="p-1 rounded-lg bg-white border border-sky-200 font-bold hover:bg-sky-50">🎛️ Livre</button>
+                </div>
+              </div>
+
+              <!-- Upload de Logotipo Imagem (Opcional) -->
+              <div class="pt-1 border-t border-sky-100">
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Ou use Logotipo / Imagem PNG:</label>
+                <input type="file" accept="image/png,image/webp" onchange="handleWatermarkLogoUpload(this.files[0])" class="text-[11px] w-full text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-xl file:border file:border-sky-200 file:bg-white file:text-sky-700 file:font-bold">
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Ajustes Finais Globais & Botão de Renderização -->
+        <div class="glass-card rounded-3xl p-5 shadow-sm space-y-3">
+          
+          <div class="grid grid-cols-2 gap-3 text-xs">
+            <!-- Proporção -->
+            <div>
+              <label class="block text-[11px] font-bold text-slate-700 mb-1">Proporção Final:</label>
+              <select id="editorAspectRatio" class="w-full bg-white border border-sky-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-800">
+                <option value="original">Manter Original</option>
+                <option value="16:9">16:9 (YouTube)</option>
+                <option value="9:16">9:16 (Reels/TikTok)</option>
+                <option value="1:1">1:1 (Quadrado)</option>
+              </select>
+            </div>
+
+            <!-- Velocidade Geral -->
+            <div>
+              <label class="block text-[11px] font-bold text-slate-700 mb-1">Velocidade Geral:</label>
+              <select id="editorGlobalSpeed" class="w-full bg-white border border-sky-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-800">
+                <option value="1.0" selected>1.0x (Normal)</option>
+                <option value="0.5">0.5x (Câmera Lenta)</option>
+                <option value="1.5">1.5x (Acelerado)</option>
+                <option value="2.0">2.0x (Rápido)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-1 border-t border-sky-100 text-xs">
+            <label class="flex items-center space-x-2 cursor-pointer font-bold text-slate-700">
+              <input type="checkbox" id="editorMuteAudio" class="rounded text-sky-500 border-sky-300 w-4 h-4">
+              <span>🔇 Silenciar áudio</span>
+            </label>
+            <span id="editorTotalDurationBadge" class="text-[11px] font-mono-code font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200">
+              Duração: 00:00
+            </span>
+          </div>
+
+          <!-- Botão Principal de Renderização -->
+          <div class="pt-1">
+            <button id="btnRenderEditor" onclick="startEditorRender()" class="w-full bg-gradient-to-r from-sky-500 via-sky-600 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-extrabold text-sm py-3.5 px-4 rounded-2xl shadow-lg shadow-sky-500/25 transition-all flex items-center justify-center gap-2">
+              🚀 Renderizar e Salvar Vídeo Editado
+            </button>
+          </div>
+
+          <!-- Barra de Progresso SSE -->
+          <div id="editorProgressWrap" class="hidden space-y-2 pt-2 border-t border-sky-100">
+            <div class="flex justify-between text-xs text-sky-800">
+              <span id="editorProgressStatus" class="font-medium truncate">Renderizando edição...</span>
+              <span id="editorProgressPercent" class="font-mono-code font-bold">0%</span>
+            </div>
+            <div class="w-full bg-sky-100 rounded-full h-2.5 overflow-hidden border border-sky-200">
+              <div id="editorProgressBar" class="bg-gradient-to-r from-sky-400 to-blue-600 h-full rounded-full transition-all duration-200" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <!-- Card de Conclusão -->
+          <div id="editorDeliveryCard" class="hidden p-4 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-2">
+            <div class="flex items-center gap-2">
+              <span class="text-emerald-600 font-bold text-base">✓</span>
+              <p class="text-xs font-bold text-emerald-900">Vídeo renderizado com sucesso em alta fidelidade!</p>
+            </div>
+            <div class="flex gap-2">
+              <a id="btnEditorDownload" href="#" download class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-3 rounded-xl text-center shadow-sm">
+                📥 Baixar Vídeo Editado
+              </a>
+              <button onclick="playEditorResultInPlayer()" class="bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-xs py-2 px-3 rounded-xl">
+                ▶️ Assistir Agora
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+
+  <!-- ========================================== -->
+  <!-- ABA 3: GALERIA DE MÍDIAS PROCESSADAS       -->
+  <!-- ========================================== -->
+  <main id="viewGallery" class="hidden flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-5">
+    
+    <!-- Cabeçalho da Galeria -->
+    <div class="glass-card rounded-3xl p-5 shadow-sm flex flex-wrap justify-between items-center gap-3">
+      <div>
+        <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+          📁 Banco de Mídias Processadas (Salvo no Navegador & Servidor)
+        </h2>
+        <p class="text-xs text-slate-500">Todos os seus vídeos e imagens sem marca d'água são salvos automaticamente e não são perdidos ao recarregar.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="loadGalleryFromBackend()" class="bg-white hover:bg-sky-50 text-slate-700 font-bold text-xs py-2 px-3.5 rounded-2xl border border-sky-200 shadow-sm transition flex items-center gap-1.5">
+          🔄 Atualizar
+        </button>
+      </div>
+    </div>
+
+    <!-- Grid de Cards da Galeria -->
+    <div id="galleryGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <!-- Inserido dinamicamente via JS -->
+    </div>
+
+    <!-- Placeholder quando galeria estiver vazia -->
+    <div id="galleryEmptyState" class="hidden glass-card rounded-3xl p-12 text-center text-slate-400 space-y-2">
+      <span class="text-5xl block mb-2">📂</span>
+      <h3 class="text-sm font-bold text-slate-700">Nenhuma mídia processada ainda</h3>
+      <p class="text-xs text-slate-400 max-w-md mx-auto">Processe um vídeo ou imagem na aba "Remover Marcas" para que ele seja salvo automaticamente aqui na sua galeria.</p>
+      <button onclick="switchMainTab('inpainting')" class="mt-3 bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs py-2 px-4 rounded-xl shadow-sm">
+        ✨ Ir para Remoção de Marcas
+      </button>
+    </div>
+
+  </main>
+
+
+  <!-- Modal para Selecionar Vídeo da Galeria e Adicionar ao Editor -->
+  <div id="galleryPickerModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center p-4 z-50">
+    <div class="bg-white border border-sky-100 rounded-3xl p-5 max-w-3xl w-full shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+      <div class="flex justify-between items-center border-b border-sky-100 pb-3">
+        <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+          📁 Selecionar Vídeo da Galeria para a Linha do Tempo
+        </h3>
+        <button onclick="closeAddFromGalleryModal()" class="text-slate-400 hover:text-slate-700 font-bold text-xl">&times;</button>
+      </div>
+      <div id="galleryPickerGrid" class="flex-1 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 p-1">
+        <!-- Renderizado dinamicamente -->
+      </div>
+      <div class="flex justify-end pt-2 border-t border-sky-100">
+        <button onclick="closeAddFromGalleryModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs py-2 px-4 rounded-xl font-medium">Fechar</button>
+      </div>
+    </div>
+  </div>
+
 
   <!-- Modal de Configuração de API de IA (Gemini & WaveSpeed) -->
   <div id="configModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center p-4 z-50">
@@ -411,7 +1012,7 @@
       </div>
 
       <p class="text-xs text-slate-500 leading-relaxed bg-sky-50/60 p-3 rounded-2xl border border-sky-100">
-        💡 <strong>Reconstrução Pixel a Pixel:</strong> As chaves são armazenadas localmente no seu servidor de forma segura e permitem regenerar os pixels removidos sem distorções ou desfoque.
+        💡 <strong>Reconstrução de Alta Fidelidade:</strong> As chaves são salvas com segurança no servidor local e aceleram a regeneração dos pixels removidos sem distorções visuais.
       </p>
 
       <div class="flex justify-end space-x-2 pt-2 border-t border-sky-100">
@@ -448,30 +1049,1321 @@
 
   <!-- Aplicação em JavaScript Puro -->
   <script>
+    // ==========================================
+    // ESTADO GLOBAL DA APLICAÇÃO
+    // ==========================================
     let currentVideoId = null;
     let videoMeta = null;
     let isCurrentMediaImage = false;
     let originalMediaUrl = null;
     let cleanMediaUrl = null;
+    let lastCleanTaskId = null;
     let boxes = [];
     let isDrawing = false;
     let startX = 0, startY = 0;
     let activeTaskId = null;
     let activeEventSource = null;
     let pollInterval = null;
+    let playerInteractionMode = 'watch'; // 'draw' | 'watch'
 
-    // Elementos principais
+    // Tema Noturno / Claro
+    let currentTheme = localStorage.getItem('marcaremove_theme') || 'dark';
+
+    function applyTheme(theme) {
+      currentTheme = theme;
+      localStorage.setItem('marcaremove_theme', theme);
+      const html = document.documentElement;
+      const icon = document.getElementById('themeToggleIcon');
+      const txt = document.getElementById('themeToggleText');
+      if (theme === 'dark') {
+        html.classList.add('dark');
+        if (icon) icon.innerText = '☀️';
+        if (txt) txt.innerText = 'Modo Claro';
+      } else {
+        html.classList.remove('dark');
+        if (icon) icon.innerText = '🌙';
+        if (txt) txt.innerText = 'Modo Escuro';
+      }
+    }
+
+    function toggleTheme() {
+      applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+    }
+
+    // Estado da Galeria
+    let galleryItems = [];
+
+    // Estado do Editor de Vídeo Avançado
+    let editorClips = [];
+    let activeEditorClipIndex = 0;
+    let activeEditorTaskId = null;
+    let lastEditorRenderedUrl = null;
+    let activeEditorToolTab = 'clips';
+
+    let editorCrop = {
+      enabled: false,
+      xPct: 0,
+      yPct: 0,
+      widthPct: 100,
+      heightPct: 100
+    };
+
+    let editorStickers = [];
+
+    let editorWatermark = {
+      enabled: false,
+      type: 'text',
+      text: '@meucanal_oficial',
+      color: '#38bdf8',
+      fontSize: 34,
+      opacity: 0.85,
+      position: 'bottom-right',
+      customX: 85,
+      customY: 88,
+      imagePath: null,
+      dataUrl: null
+    };
+
+    // Elementos do DOM
     const video = document.getElementById("videoPreview");
     const image = document.getElementById("imagePreview");
     const canvas = document.getElementById("drawCanvas");
     const ctx = canvas.getContext("2d");
 
+    const editorVideo = document.getElementById("editorVideoPreview");
+    const editorOverlayCanvas = document.getElementById("editorOverlayCanvas");
+
     // Inicialização
     window.addEventListener("DOMContentLoaded", async () => {
+      applyTheme(currentTheme);
       await loadHardwareInfo();
       await loadAiConfigModalData();
+      await loadGalleryFromBackend();
+      setupCustomPlayerEventListeners();
+      setupEditorEventListeners();
+      setPlayerInteractionMode('watch');
     });
 
+    // ==========================================
+    // SISTEMA DE NAVEGAÇÃO DE ABAS
+    // ==========================================
+    function switchMainTab(tab) {
+      const vInpaint = document.getElementById("viewInpainting");
+      const vEditor = document.getElementById("viewEditor");
+      const vGallery = document.getElementById("viewGallery");
+
+      const nInpaint = document.getElementById("navTabInpaint");
+      const nEditor = document.getElementById("navTabEditor");
+      const nGallery = document.getElementById("navTabGallery");
+
+      const activeClass = "flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white text-sky-700 shadow-sm transition";
+      const inactiveClass = "flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-slate-600 hover:text-sky-800 transition";
+
+      vInpaint.classList.add("hidden");
+      vEditor.classList.add("hidden");
+      vGallery.classList.add("hidden");
+
+      nInpaint.className = inactiveClass;
+      nEditor.className = inactiveClass;
+      nGallery.className = inactiveClass;
+
+      if (tab === 'editor') {
+        vEditor.classList.remove("hidden");
+        nEditor.className = activeClass;
+        renderEditorClipsList();
+      } else if (tab === 'gallery') {
+        vGallery.classList.remove("hidden");
+        nGallery.className = activeClass;
+        loadGalleryFromBackend();
+      } else {
+        vInpaint.classList.remove("hidden");
+        nInpaint.className = activeClass;
+        if (!video.classList.contains("hidden")) initCanvas();
+        if (!image.classList.contains("hidden")) initImageCanvas();
+      }
+    }
+
+    // ==========================================
+    // CORREÇÃO DO PLAYER & MODO DE INTERAÇÃO
+    // (Garante Play, Pause, Seek e Volume)
+    // ==========================================
+    function setPlayerInteractionMode(mode) {
+      playerInteractionMode = mode;
+      const btnDraw = document.getElementById("btnModeDraw");
+      const btnWatch = document.getElementById("btnModeWatch");
+
+      if (mode === 'draw') {
+        canvas.style.pointerEvents = "auto";
+        canvas.style.cursor = "crosshair";
+        btnDraw.className = "px-2.5 py-1 rounded-lg font-bold bg-white text-sky-700 shadow-sm transition flex items-center gap-1";
+        btnWatch.className = "px-2.5 py-1 rounded-lg font-semibold text-slate-600 hover:text-sky-800 transition flex items-center gap-1";
+        showToast("Modo Marcar: arraste o mouse sobre a marca d'água.", "✏️");
+      } else {
+        canvas.style.pointerEvents = "none";
+        canvas.style.cursor = "default";
+        btnWatch.className = "px-2.5 py-1 rounded-lg font-bold bg-white text-sky-700 shadow-sm transition flex items-center gap-1";
+        btnDraw.className = "px-2.5 py-1 rounded-lg font-semibold text-slate-600 hover:text-sky-800 transition flex items-center gap-1";
+      }
+    }
+
+    function setupCustomPlayerEventListeners() {
+      video.addEventListener("timeupdate", () => {
+        if (!isNaN(video.duration) && video.duration > 0) {
+          const pct = (video.currentTime / video.duration) * 100;
+          document.getElementById("playerSeekBar").value = pct;
+          document.getElementById("playerCurrentTime").innerText = formatSecondsToTime(video.currentTime);
+        }
+      });
+
+      video.addEventListener("loadedmetadata", () => {
+        document.getElementById("playerDuration").innerText = formatSecondsToTime(video.duration || 0);
+        document.getElementById("playerControlsBar").classList.remove("hidden");
+        initCanvas();
+      });
+
+      video.addEventListener("play", () => {
+        document.getElementById("btnPlayerPlayPause").innerText = "⏸";
+        // Durante a reprodução, desativa pointer-events para o usuário poder pausar com 1 clique
+        setPlayerInteractionMode('watch');
+      });
+
+      video.addEventListener("pause", () => {
+        document.getElementById("btnPlayerPlayPause").innerText = "▶";
+      });
+
+      video.addEventListener("ended", () => {
+        document.getElementById("btnPlayerPlayPause").innerText = "▶";
+      });
+    }
+
+    function togglePlayerPlay() {
+      if (video.paused || video.ended) {
+        video.play().catch(e => console.warn("Erro ao dar play:", e));
+      } else {
+        video.pause();
+      }
+    }
+
+    function handlePlayerSeek(val) {
+      if (video.duration) {
+        video.currentTime = (parseFloat(val) / 100) * video.duration;
+      }
+    }
+
+    function rewindPlayer(seconds) {
+      video.currentTime = Math.max(0, (video.currentTime || 0) - seconds);
+    }
+
+    function forwardPlayer(seconds) {
+      if (video.duration) {
+        video.currentTime = Math.min(video.duration, (video.currentTime || 0) + seconds);
+      }
+    }
+
+    function handlePlayerVolume(val) {
+      video.volume = parseFloat(val);
+      video.muted = (video.volume === 0);
+      document.getElementById("btnPlayerMute").innerText = video.muted ? "🔇" : "🔊";
+    }
+
+    function togglePlayerMute() {
+      video.muted = !video.muted;
+      document.getElementById("btnPlayerMute").innerText = video.muted ? "🔇" : "🔊";
+      if (!video.muted && video.volume === 0) {
+        video.volume = 0.5;
+        document.getElementById("playerVolumeBar").value = 0.5;
+      }
+    }
+
+    function togglePlayerFullscreen() {
+      if (!document.fullscreenElement) {
+        const wrap = document.getElementById("canvasWrapper");
+        if (wrap.requestFullscreen) wrap.requestFullscreen();
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+      }
+    }
+
+    // ==========================================
+    // SISTEMA DE BANCO DE DADOS / GALERIA LOCAL
+    // ==========================================
+    async function loadGalleryFromBackend() {
+      try {
+        const resp = await fetch("/api/gallery");
+        const data = await parseJsonResponse(resp);
+        if (data.success && Array.isArray(data.items)) {
+          galleryItems = data.items;
+          document.getElementById("headerGalleryBadge").innerText = galleryItems.length;
+          renderGalleryGrid();
+        }
+      } catch (err) {
+        console.warn("Erro ao buscar galeria:", err.message);
+      }
+    }
+
+    function renderGalleryGrid() {
+      const grid = document.getElementById("galleryGrid");
+      const empty = document.getElementById("galleryEmptyState");
+
+      if (!grid) return;
+      grid.innerHTML = "";
+
+      if (galleryItems.length === 0) {
+        empty.classList.remove("hidden");
+        return;
+      }
+      empty.classList.add("hidden");
+
+      galleryItems.forEach((item) => {
+        const isVid = item.mediaType === 'video';
+        const card = document.createElement("div");
+        card.className = "glass-card rounded-2xl overflow-hidden border border-sky-100 shadow-sm hover:shadow-md transition flex flex-col justify-between";
+
+        const thumbSrc = item.thumbnailUrl || (isVid ? "" : item.url);
+        const durStr = isVid ? formatSecondsToTime(item.duration || 0) : "";
+        const sizeMb = ((item.size || 0) / (1024 * 1024)).toFixed(1);
+        const dateStr = item.createdAt ? new Date(item.createdAt).toLocaleDateString('pt-BR') : "";
+
+        card.innerHTML = `
+          <div class="relative bg-slate-900/10 h-36 flex items-center justify-center overflow-hidden group cursor-pointer" onclick="watchGalleryItem('${item.id}')">
+            ${thumbSrc ? `<img src="${thumbSrc}" class="w-full h-full object-cover group-hover:scale-105 transition-transform">` : `<div class="text-3xl">${isVid ? '🎬' : '🖼️'}</div>`}
+            ${isVid ? `<span class="absolute bottom-2 right-2 bg-slate-900/80 text-white font-mono-code text-[10px] px-1.5 py-0.5 rounded font-bold">${durStr}</span>` : ''}
+            <div class="absolute inset-0 bg-slate-900/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <span class="w-10 h-10 rounded-full bg-white/90 text-sky-700 flex items-center justify-center text-lg font-bold shadow-lg">▶</span>
+            </div>
+          </div>
+          <div class="p-3 space-y-2 flex-1 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between text-[10px] mb-1">
+                <span class="bg-sky-100 text-sky-800 font-bold px-1.5 py-0.5 rounded uppercase">${item.mediaType}</span>
+                <span class="text-slate-400 font-mono-code">${dateStr}</span>
+              </div>
+              <h4 class="text-xs font-bold text-slate-800 truncate" title="${item.title}">${item.title}</h4>
+              <p class="text-[11px] text-slate-400">${item.width && item.height ? `${item.width}x${item.height} • ` : ''}${sizeMb} MB</p>
+            </div>
+            <div class="flex items-center gap-1.5 pt-2 border-t border-sky-100">
+              <button onclick="watchGalleryItem('${item.id}')" class="flex-1 bg-white hover:bg-sky-50 text-sky-700 border border-sky-200 rounded-xl py-1 text-[11px] font-bold shadow-sm" title="Assistir / Ouvir">
+                ${item.mediaType === 'audio' ? '🎵 Ouvir' : '▶️ Assistir'}
+              </button>
+              ${isVid ? `
+                <button onclick="extractAudioFromGalleryItem('${item.id}')" class="bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl p-1 px-2 text-[11px] font-bold" title="Separar Áudio (MP3)">
+                  🎵
+                </button>
+                <button onclick="sendGalleryItemToEditor('${item.id}')" class="bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl p-1 px-2 text-[11px] font-bold" title="Enviar para o Editor">
+                  ✂️
+                </button>
+              ` : ''}
+              <a href="${item.downloadUrl || `/api/download/${item.id}`}" download class="bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl p-1 px-2 text-[11px] font-bold" title="Baixar">
+                📥
+              </a>
+              <button onclick="deleteGalleryItem('${item.id}')" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl p-1 px-2 text-[11px] font-bold" title="Excluir">
+                🗑️
+              </button>
+            </div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    async function extractAudioFromGalleryItem(id) {
+      showToast("Separando trilha de áudio...", "🎵");
+      try {
+        const resp = await fetch("/api/editor/extract-audio", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id })
+        });
+        const data = await parseJsonResponse(resp);
+        if (data.success) {
+          showToast("Áudio MP3 extraído e salvo com sucesso!", "✅");
+          await loadGalleryFromBackend();
+        } else {
+          showToast("Erro: " + (data.error || "Falha ao extrair"), "❌");
+        }
+      } catch (err) {
+        showToast("Erro ao separar áudio: " + err.message, "❌");
+      }
+    }
+
+    function watchGalleryItem(id) {
+      const item = galleryItems.find(m => m.id === id);
+      if (!item) return;
+
+      switchMainTab('inpainting');
+      cleanMediaUrl = item.url || `/api/result/${item.id}`;
+      originalMediaUrl = cleanMediaUrl;
+      lastCleanTaskId = item.id;
+      isCurrentMediaImage = item.mediaType === 'image';
+
+      document.getElementById("infoName").innerText = item.title;
+      document.getElementById("infoDetails").innerText = `${item.width || 0}x${item.height || 0} • ${((item.size || 0)/(1024*1024)).toFixed(1)} MB`;
+      document.getElementById("mediaTypeTag").innerText = isCurrentMediaImage ? "Imagem" : "Vídeo";
+      document.getElementById("mediaInfoBadge").classList.remove("hidden");
+
+      document.getElementById("btnDownloadFinal").href = item.downloadUrl || `/api/download/${item.id}`;
+      document.getElementById("deliveryCard").classList.remove("hidden");
+
+      loadCleanResultIntoPlayer();
+      showToast("Mídia carregada da galeria!", "🎬");
+    }
+
+    async function deleteGalleryItem(id) {
+      if (!confirm("Deseja realmente excluir este arquivo salvo?")) return;
+      try {
+        const resp = await fetch(`/api/gallery/${id}`, { method: "DELETE" });
+        const data = await parseJsonResponse(resp);
+        if (data.success) {
+          galleryItems = galleryItems.filter(it => it.id !== id);
+          document.getElementById("headerGalleryBadge").innerText = galleryItems.length;
+          renderGalleryGrid();
+          showToast("Mídia removida com sucesso.", "🗑️");
+        }
+      } catch (err) {
+        showToast("Erro ao excluir: " + err.message, "❌");
+      }
+    }
+
+    function sendCurrentCleanToEditor() {
+      if (!lastCleanTaskId) return;
+      sendGalleryItemToEditor(lastCleanTaskId);
+    }
+
+    function sendGalleryItemToEditor(id) {
+      const item = galleryItems.find(m => m.id === id);
+      if (!item) return;
+
+      addClipToEditor({
+        id: item.id,
+        filePath: item.filePath,
+        title: item.title,
+        duration: item.duration || 10,
+        width: item.width || 1920,
+        height: item.height || 1080,
+        thumbnailUrl: item.thumbnailUrl
+      });
+
+      switchMainTab('editor');
+      showToast("Vídeo adicionado à linha do tempo do Editor!", "✂️");
+    }
+
+    // ==========================================
+    // SISTEMA DO EDITOR DE VÍDEO INTEGRADO
+    // ==========================================
+    function setupEditorEventListeners() {
+      if (!editorVideo) return;
+
+      editorVideo.addEventListener("timeupdate", () => {
+        updateTimelinePlayhead();
+        renderEditorOverlayCanvas();
+      });
+
+      editorVideo.addEventListener("play", () => {
+        const icon = document.getElementById("editorPlayIcon");
+        if (icon) icon.innerText = "⏸️";
+      });
+
+      editorVideo.addEventListener("pause", () => {
+        const icon = document.getElementById("editorPlayIcon");
+        if (icon) icon.innerText = "▶️";
+      });
+
+      editorVideo.addEventListener("loadedmetadata", () => {
+        renderEditorOverlayCanvas();
+      });
+
+      window.addEventListener("resize", () => {
+        renderEditorOverlayCanvas();
+      });
+    }
+
+    function switchEditorToolTab(tab) {
+      activeEditorToolTab = tab;
+      const tabs = ['clips', 'crop', 'stickers', 'watermark'];
+      tabs.forEach(t => {
+        const pane = document.getElementById(`editorTool${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        const btn = document.getElementById(`subTabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        if (t === tab) {
+          if (pane) pane.classList.remove('hidden');
+          if (btn) btn.className = 'py-1.5 px-1 rounded-xl bg-white dark:bg-slate-800 text-sky-700 dark:text-sky-300 font-bold shadow-sm transition';
+        } else {
+          if (pane) pane.classList.add('hidden');
+          if (btn) btn.className = 'py-1.5 px-1 rounded-xl text-slate-600 dark:text-slate-400 hover:text-sky-700 transition font-bold';
+        }
+      });
+      renderEditorOverlayCanvas();
+    }
+
+    // Modal de Galeria para a Timeline
+    function openAddFromGalleryModal() {
+      const modal = document.getElementById("galleryPickerModal");
+      const grid = document.getElementById("galleryPickerGrid");
+      grid.innerHTML = "";
+
+      const videoItems = galleryItems.filter(m => m.mediaType === 'video');
+      if (videoItems.length === 0) {
+        grid.innerHTML = `<p class="col-span-full text-center py-8 text-xs text-slate-400">Nenhum vídeo salvo na galeria ainda. Processe um vídeo primeiro!</p>`;
+      } else {
+        videoItems.forEach((m) => {
+          const card = document.createElement("div");
+          card.className = "border border-sky-100 dark:border-slate-700 rounded-xl p-2.5 bg-sky-50/40 dark:bg-slate-800 flex items-center justify-between gap-2";
+          card.innerHTML = `
+            <div class="overflow-hidden">
+              <p class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">${m.title}</p>
+              <p class="text-[10px] text-slate-400 font-mono-code">${formatSecondsToTime(m.duration || 0)}</p>
+            </div>
+            <button onclick="selectVideoForEditor('${m.id}')" class="bg-sky-500 hover:bg-sky-600 text-white font-bold text-xs py-1.5 px-3 rounded-xl shadow-sm">
+              Adicionar +
+            </button>
+          `;
+          grid.appendChild(card);
+        });
+      }
+
+      modal.classList.remove("hidden");
+    }
+
+    function closeAddFromGalleryModal() {
+      document.getElementById("galleryPickerModal").classList.add("hidden");
+    }
+
+    function selectVideoForEditor(id) {
+      const item = galleryItems.find(m => m.id === id);
+      if (item) {
+        addClipToEditor({
+          id: item.id,
+          filePath: item.filePath,
+          title: item.title,
+          duration: item.duration || 10,
+          width: item.width || 1920,
+          height: item.height || 1080,
+          thumbnailUrl: item.thumbnailUrl
+        });
+        closeAddFromGalleryModal();
+        showToast("Clipe adicionado à timeline!", "🎞️");
+      }
+    }
+
+    function addClipToEditor(clipData) {
+      const newClip = {
+        id: clipData.id || `clip_${Date.now()}`,
+        filePath: clipData.filePath,
+        title: clipData.title || `Clipe #${editorClips.length + 1}`,
+        duration: clipData.duration || 10,
+        trimStart: 0,
+        trimEnd: clipData.duration || 10,
+        speed: 1.0,
+        thumbnailUrl: clipData.thumbnailUrl
+      };
+      editorClips.push(newClip);
+      activeEditorClipIndex = editorClips.length - 1;
+      renderEditorClipsList();
+      renderTimeline();
+      loadEditorPreviewClip(activeEditorClipIndex);
+    }
+
+    function removeEditorClip(index) {
+      editorClips.splice(index, 1);
+      if (activeEditorClipIndex >= editorClips.length) {
+        activeEditorClipIndex = Math.max(0, editorClips.length - 1);
+      }
+      renderEditorClipsList();
+      renderTimeline();
+      if (editorClips.length > 0) {
+        loadEditorPreviewClip(activeEditorClipIndex);
+      } else {
+        editorVideo.classList.add("hidden");
+        document.getElementById("editorPreviewPlaceholder").classList.remove("hidden");
+        renderEditorOverlayCanvas();
+      }
+    }
+
+    function moveEditorClip(index, dir) {
+      const target = index + dir;
+      if (target < 0 || target >= editorClips.length) return;
+      const tmp = editorClips[index];
+      editorClips[index] = editorClips[target];
+      editorClips[target] = tmp;
+      activeEditorClipIndex = target;
+      renderEditorClipsList();
+      renderTimeline();
+      loadEditorPreviewClip(activeEditorClipIndex);
+    }
+
+    function splitActiveEditorClip() {
+      if (editorClips.length === 0) {
+        showToast("Adicione um clipe antes de dividir!", "⚠️");
+        return;
+      }
+      const idx = activeEditorClipIndex;
+      const clip = editorClips[idx];
+      if (!clip) return;
+
+      const curTime = editorVideo.currentTime || clip.trimStart || 0;
+      if (curTime <= clip.trimStart + 0.3 || curTime >= clip.trimEnd - 0.3) {
+        showToast("Posicione a agulha de reprodução no meio do clipe para dividir!", "⚠️");
+        return;
+      }
+
+      const splitPoint = Math.round(curTime * 10) / 10;
+      const secondPart = {
+        ...clip,
+        id: clip.id,
+        title: `${clip.title} (Parte 2)`,
+        trimStart: splitPoint,
+        trimEnd: clip.trimEnd
+      };
+
+      clip.trimEnd = splitPoint;
+      clip.title = `${clip.title} (Parte 1)`;
+
+      editorClips.splice(idx + 1, 0, secondPart);
+      activeEditorClipIndex = idx;
+      renderEditorClipsList();
+      renderTimeline();
+      showToast(`Clipe dividido com sucesso em ${splitPoint}s!`, "✂️");
+    }
+
+    function clearEditorTimeline() {
+      if (editorClips.length === 0) return;
+      if (!confirm("Deseja limpar todos os clipes da linha do tempo?")) return;
+      editorClips = [];
+      activeEditorClipIndex = 0;
+      editorStickers = [];
+      renderEditorClipsList();
+      renderTimeline();
+      editorVideo.pause();
+      editorVideo.classList.add("hidden");
+      document.getElementById("editorPreviewPlaceholder").classList.remove("hidden");
+      renderEditorOverlayCanvas();
+      showToast("Linha do tempo limpa.", "🗑️");
+    }
+
+    async function extractAudioFromActiveEditorClip() {
+      if (editorClips.length === 0) {
+        showToast("Adicione um clipe na timeline para extrair o áudio!", "⚠️");
+        return;
+      }
+      const clip = editorClips[activeEditorClipIndex] || editorClips[0];
+      showToast(`Extraindo áudio de ${clip.title}...`, "🎵");
+      try {
+        const resp = await fetch("/api/editor/extract-audio", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: clip.id, filePath: clip.filePath })
+        });
+        const data = await parseJsonResponse(resp);
+        if (data.success) {
+          showToast("Trilha de áudio extraída com sucesso em MP3!", "✅");
+          await loadGalleryFromBackend();
+          const a = document.createElement("a");
+          a.href = data.download_url;
+          a.download = `audio_${clip.title.replace(/\s+/g, '_')}.mp3`;
+          a.click();
+        } else {
+          showToast("Erro: " + (data.error || "Falha ao extrair"), "❌");
+        }
+      } catch (err) {
+        showToast("Erro ao separar áudio: " + err.message, "❌");
+      }
+    }
+
+    function updateClipTrim(index, field, value) {
+      const val = parseFloat(value) || 0;
+      if (editorClips[index]) {
+        editorClips[index][field] = Math.max(0, val);
+        updateEditorTotalDuration();
+        renderTimeline();
+      }
+    }
+
+    function setClipTrimToCurrentPlayer(index, field) {
+      if (editorVideo.currentTime !== undefined) {
+        const cur = Math.round(editorVideo.currentTime * 10) / 10;
+        const inputId = field === 'trimStart' ? `clipStart_${index}` : `clipEnd_${index}`;
+        const input = document.getElementById(inputId);
+        if (input) input.value = cur;
+        updateClipTrim(index, field, cur);
+        showToast(`Tempo fixado em ${cur}s`, "📍");
+      }
+    }
+
+    function loadEditorPreviewClip(index) {
+      activeEditorClipIndex = index;
+      const clip = editorClips[index];
+      if (!clip) return;
+
+      document.getElementById("editorPreviewClipTitle").innerText = clip.title;
+      document.getElementById("editorPreviewPlaceholder").classList.add("hidden");
+      editorVideo.classList.remove("hidden");
+
+      editorVideo.src = `/api/result/${clip.id}`;
+      editorVideo.currentTime = clip.trimStart || 0;
+      editorVideo.onloadedmetadata = () => {
+        renderEditorOverlayCanvas();
+      };
+    }
+
+    function renderEditorClipsList() {
+      const list = document.getElementById("editorClipsList");
+      const empty = document.getElementById("editorEmptyPlaceholder");
+      if (!list) return;
+
+      list.innerHTML = "";
+
+      if (editorClips.length === 0) {
+        list.appendChild(empty);
+        empty.classList.remove("hidden");
+        updateEditorTotalDuration();
+        return;
+      }
+
+      editorClips.forEach((clip, idx) => {
+        const dur = (clip.trimEnd - clip.trimStart).toFixed(1);
+        const isCurrent = idx === activeEditorClipIndex;
+        const item = document.createElement("div");
+        item.className = `border rounded-2xl p-3 shadow-sm space-y-2 transition ${isCurrent ? 'bg-sky-50 dark:bg-slate-800 border-sky-400 ring-2 ring-sky-300' : 'bg-white dark:bg-slate-800 border-sky-200/90 hover:border-sky-300'}`;
+
+        item.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2 cursor-pointer truncate" onclick="loadEditorPreviewClip(${idx})">
+              <span class="w-6 h-6 rounded-full ${isCurrent ? 'bg-sky-600' : 'bg-sky-500'} text-white font-bold flex items-center justify-center text-xs">${idx + 1}</span>
+              <span class="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">${clip.title}</span>
+              <span class="text-[10px] text-sky-600 dark:text-sky-400 font-mono-code font-bold">(${dur}s)</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <button onclick="moveEditorClip(${idx}, -1)" class="w-6 h-6 rounded bg-slate-100 dark:bg-slate-700 hover:bg-sky-50 text-slate-600 dark:text-slate-200 text-xs font-bold" title="Mover para a esquerda">◀</button>
+              <button onclick="moveEditorClip(${idx}, 1)" class="w-6 h-6 rounded bg-slate-100 dark:bg-slate-700 hover:bg-sky-50 text-slate-600 dark:text-slate-200 text-xs font-bold" title="Mover para a direita">▶</button>
+              <button onclick="removeEditorClip(${idx})" class="w-6 h-6 rounded bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold" title="Remover">&times;</button>
+            </div>
+          </div>
+
+          <!-- Controles de Corte (Trim) do Clipe -->
+          <div class="grid grid-cols-2 gap-2 pt-1 border-t border-sky-100 dark:border-slate-700 text-[11px]">
+            <div>
+              <div class="flex justify-between items-center mb-0.5">
+                <span class="text-slate-500 dark:text-slate-400">Início:</span>
+                <button onclick="setClipTrimToCurrentPlayer(${idx}, 'trimStart')" class="text-[10px] text-sky-600 hover:underline">📍 Tempo Atual</button>
+              </div>
+              <input type="number" id="clipStart_${idx}" min="0" max="${clip.duration}" step="0.1" value="${clip.trimStart}" onchange="updateClipTrim(${idx}, 'trimStart', this.value)" class="w-full bg-slate-50 dark:bg-slate-900 border border-sky-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-800 dark:text-slate-100 font-mono-code text-xs">
+            </div>
+            <div>
+              <div class="flex justify-between items-center mb-0.5">
+                <span class="text-slate-500 dark:text-slate-400">Fim:</span>
+                <button onclick="setClipTrimToCurrentPlayer(${idx}, 'trimEnd')" class="text-[10px] text-sky-600 hover:underline">🎯 Tempo Atual</button>
+              </div>
+              <input type="number" id="clipEnd_${idx}" min="0" max="${clip.duration}" step="0.1" value="${clip.trimEnd}" onchange="updateClipTrim(${idx}, 'trimEnd', this.value)" class="w-full bg-slate-50 dark:bg-slate-900 border border-sky-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-800 dark:text-slate-100 font-mono-code text-xs">
+            </div>
+          </div>
+        `;
+        list.appendChild(item);
+      });
+
+      updateEditorTotalDuration();
+    }
+
+    function calculateEditorTotalDuration() {
+      let total = 0;
+      const speed = parseFloat(document.getElementById("editorGlobalSpeed")?.value || "1.0") || 1.0;
+      editorClips.forEach(c => {
+        const d = Math.max(0, (c.trimEnd || c.duration) - (c.trimStart || 0));
+        total += d / speed;
+      });
+      return total;
+    }
+
+    function updateEditorTotalDuration() {
+      const total = calculateEditorTotalDuration();
+      const badge = document.getElementById("editorTotalDurationBadge");
+      if (badge) badge.innerText = `Duração: ${formatSecondsToTime(total)}`;
+      const totalCode = document.getElementById("editorTotalTimeCode");
+      if (totalCode) totalCode.innerText = formatSecondsToTime(total);
+    }
+
+    // ==========================================
+    // RENDERIZADOR DA LINHA DO TEMPO VISUAL
+    // ==========================================
+    function renderTimeline() {
+      const total = Math.max(5, calculateEditorTotalDuration());
+      renderTimelineRuler(total);
+      renderTimelineClips(total);
+      renderTimelineOverlays(total);
+      updateTimelinePlayhead();
+    }
+
+    function renderTimelineRuler(totalSec) {
+      const ruler = document.getElementById("timelineRuler");
+      if (!ruler) return;
+      ruler.innerHTML = "";
+
+      const step = totalSec > 60 ? 10 : (totalSec > 20 ? 5 : 2);
+      for (let sec = 0; sec <= totalSec; sec += step) {
+        const pct = (sec / totalSec) * 100;
+        const tick = document.createElement("div");
+        tick.className = "absolute bottom-0 flex flex-col items-center pointer-events-none";
+        tick.style.left = `${pct}%`;
+        tick.innerHTML = `
+          <span class="text-[9px] mb-0.5">${formatSecondsToTime(sec)}</span>
+          <div class="w-px h-2 bg-slate-600"></div>
+        `;
+        ruler.appendChild(tick);
+      }
+    }
+
+    function renderTimelineClips(totalSec) {
+      const track = document.getElementById("timelineVideoTrack");
+      const hint = document.getElementById("timelineEmptyTrackHint");
+      const countBadge = document.getElementById("timelineClipsCountBadge");
+      if (!track) return;
+
+      track.innerHTML = "";
+      if (editorClips.length === 0) {
+        track.appendChild(hint);
+        hint.classList.remove("hidden");
+        if (countBadge) countBadge.innerText = "0 clipes";
+        return;
+      }
+
+      if (countBadge) countBadge.innerText = `${editorClips.length} clipe${editorClips.length > 1 ? 's' : ''}`;
+
+      editorClips.forEach((clip, idx) => {
+        const dur = Math.max(0.2, (clip.trimEnd || clip.duration) - (clip.trimStart || 0));
+        const pct = (dur / totalSec) * 100;
+        const isCurrent = idx === activeEditorClipIndex;
+
+        const block = document.createElement("div");
+        block.className = `h-14 rounded-lg flex items-center justify-between px-2 cursor-pointer transition relative overflow-hidden select-none ${isCurrent ? 'bg-gradient-to-r from-sky-600 to-blue-700 border-2 border-sky-300 shadow-md' : 'bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 border border-slate-600'}`;
+        block.style.width = `max(60px, ${pct}%)`;
+        block.title = `${clip.title} (${dur.toFixed(1)}s)`;
+        block.onclick = (e) => {
+          e.stopPropagation();
+          loadEditorPreviewClip(idx);
+          renderEditorClipsList();
+          renderTimeline();
+        };
+
+        block.innerHTML = `
+          <div class="flex items-center gap-1.5 overflow-hidden">
+            <span class="text-xs">🎬</span>
+            <span class="text-[11px] font-bold text-white truncate max-w-[120px]">${clip.title}</span>
+          </div>
+          <span class="text-[10px] font-mono-code font-bold text-sky-200 bg-sky-950/60 px-1.5 py-0.5 rounded">${dur.toFixed(1)}s</span>
+        `;
+        track.appendChild(block);
+      });
+    }
+
+    function renderTimelineOverlays(totalSec = 10) {
+      const track = document.getElementById("timelineOverlayTrack");
+      const hint = document.getElementById("timelineEmptyOverlaysHint");
+      const badge = document.getElementById("timelineOverlaysCountBadge");
+      if (!track) return;
+
+      track.innerHTML = "";
+      const totalOverlays = editorStickers.length + (editorWatermark.enabled ? 1 : 0);
+      if (badge) badge.innerText = `${totalOverlays} ativo${totalOverlays > 1 ? 's' : ''}`;
+
+      if (totalOverlays === 0) {
+        track.appendChild(hint);
+        hint.classList.remove("hidden");
+        return;
+      }
+
+      if (editorWatermark.enabled) {
+        const wmBlock = document.createElement("div");
+        wmBlock.className = "h-7 bg-cyan-700/80 border border-cyan-400 rounded-md flex items-center px-2 text-[10px] text-white font-bold truncate";
+        wmBlock.style.width = "100%";
+        wmBlock.innerHTML = `🛡️ Marca d'Água: ${editorWatermark.text}`;
+        track.appendChild(wmBlock);
+      }
+
+      editorStickers.forEach(stk => {
+        const sBlock = document.createElement("div");
+        sBlock.className = "h-7 bg-amber-600/80 border border-amber-300 rounded-md flex items-center px-2 text-[10px] text-white font-bold truncate";
+        sBlock.style.width = "100%";
+        sBlock.innerHTML = `${stk.emoji || '🎨'} Adesivo: ${stk.name}`;
+        track.appendChild(sBlock);
+      });
+    }
+
+    function updateTimelinePlayhead() {
+      const playhead = document.getElementById("timelinePlayhead");
+      const seeker = document.getElementById("editorTimelineSeeker");
+      const curTimeTxt = document.getElementById("editorCurrentTimeCode");
+      if (!playhead || !editorVideo) return;
+
+      const cur = editorVideo.currentTime || 0;
+      const total = calculateEditorTotalDuration() || 1;
+      const pct = Math.min(100, (cur / total) * 100);
+
+      playhead.style.left = `${pct}%`;
+      if (seeker) seeker.value = pct;
+      if (curTimeTxt) curTimeTxt.innerText = formatSecondsToTime(cur);
+    }
+
+    function toggleEditorPlayPause() {
+      if (!editorVideo || !editorVideo.src) return;
+      if (editorVideo.paused) {
+        editorVideo.play().catch(() => {});
+      } else {
+        editorVideo.pause();
+      }
+    }
+
+    function editorSeekTo(seconds) {
+      if (editorVideo) {
+        editorVideo.currentTime = Math.max(0, seconds);
+        updateTimelinePlayhead();
+      }
+    }
+
+    function editorSeekToEnd() {
+      const total = calculateEditorTotalDuration();
+      editorSeekTo(total);
+    }
+
+    function onEditorTimelineSeek(val) {
+      const pct = (parseFloat(val) || 0) / 100;
+      const total = calculateEditorTotalDuration();
+      editorSeekTo(pct * total);
+    }
+
+    function handleTimelineContainerClick(e) {
+      const ruler = document.getElementById("timelineRuler");
+      if (!ruler) return;
+      const rect = ruler.getBoundingClientRect();
+      const clickX = Math.max(0, e.clientX - rect.left);
+      const pct = Math.min(1.0, clickX / rect.width);
+      const total = calculateEditorTotalDuration();
+      editorSeekTo(pct * total);
+    }
+
+    function toggleEditorAudioMute() {
+      if (!editorVideo) return;
+      editorVideo.muted = !editorVideo.muted;
+      const btn = document.getElementById("btnEditorAudioMute");
+      if (btn) btn.innerText = editorVideo.muted ? "🔇" : "🔊";
+    }
+
+    // ==========================================
+    // CROP (RECORTE DE ENQUADRAMENTO)
+    // ==========================================
+    function toggleCropEnabled(enabled) {
+      editorCrop.enabled = enabled;
+      renderEditorOverlayCanvas();
+      showToast(enabled ? "Recorte ativado" : "Recorte desativado", "📐");
+    }
+
+    function setCropPreset(preset) {
+      document.getElementById("cropEnabledCheckbox").checked = true;
+      editorCrop.enabled = true;
+      if (preset === '16:9') {
+        editorCrop.xPct = 0;
+        editorCrop.yPct = 10;
+        editorCrop.widthPct = 100;
+        editorCrop.heightPct = 80;
+      } else if (preset === '9:16') {
+        editorCrop.xPct = 25;
+        editorCrop.yPct = 0;
+        editorCrop.widthPct = 50;
+        editorCrop.heightPct = 100;
+      } else if (preset === '1:1') {
+        editorCrop.xPct = 15;
+        editorCrop.yPct = 0;
+        editorCrop.widthPct = 70;
+        editorCrop.heightPct = 100;
+      } else if (preset === '4:5') {
+        editorCrop.xPct = 10;
+        editorCrop.yPct = 0;
+        editorCrop.widthPct = 80;
+        editorCrop.heightPct = 100;
+      }
+      document.getElementById("cropSliderX").value = editorCrop.xPct;
+      document.getElementById("cropSliderY").value = editorCrop.yPct;
+      document.getElementById("cropSliderW").value = editorCrop.widthPct;
+      document.getElementById("cropSliderH").value = editorCrop.heightPct;
+      updateCropValues();
+    }
+
+    function updateCropValues() {
+      editorCrop.xPct = parseFloat(document.getElementById("cropSliderX").value) || 0;
+      editorCrop.yPct = parseFloat(document.getElementById("cropSliderY").value) || 0;
+      editorCrop.widthPct = parseFloat(document.getElementById("cropSliderW").value) || 100;
+      editorCrop.heightPct = parseFloat(document.getElementById("cropSliderH").value) || 100;
+      document.getElementById("cropValX").innerText = `${editorCrop.xPct}%`;
+      document.getElementById("cropValY").innerText = `${editorCrop.yPct}%`;
+      document.getElementById("cropValW").innerText = `${editorCrop.widthPct}%`;
+      document.getElementById("cropValH").innerText = `${editorCrop.heightPct}%`;
+      renderEditorOverlayCanvas();
+    }
+
+    // ==========================================
+    // FIGURINHAS & ADESIVOS (STICKERS)
+    // ==========================================
+    function addEmojiSticker(emoji, name) {
+      const id = `stk_${Date.now()}`;
+      editorStickers.push({
+        id,
+        type: 'emoji',
+        emoji,
+        name: name || emoji,
+        xPct: 50,
+        yPct: 50,
+        size: 110,
+        opacity: 1.0,
+        startTime: 0,
+        endTime: 0
+      });
+      renderActiveStickersList();
+      renderTimelineOverlays();
+      renderEditorOverlayCanvas();
+      showToast(`Adesivo ${emoji} adicionado ao vídeo!`, "🎨");
+    }
+
+    async function handleCustomStickerUpload(file) {
+      if (!file) return;
+      showToast("Carregando adesivo...", "⏳");
+      const formData = new FormData();
+      formData.append("overlayFile", file);
+      try {
+        const resp = await fetch("/api/editor/upload-overlay", { method: "POST", body: formData });
+        const data = await parseJsonResponse(resp);
+        if (data.success) {
+          const id = `stk_${Date.now()}`;
+          editorStickers.push({
+            id,
+            type: 'image',
+            imagePath: data.filePath,
+            url: data.url,
+            name: file.name,
+            xPct: 50,
+            yPct: 50,
+            size: 140,
+            opacity: 1.0,
+            startTime: 0,
+            endTime: 0
+          });
+          renderActiveStickersList();
+          renderTimelineOverlays();
+          renderEditorOverlayCanvas();
+          showToast("Adesivo personalizado adicionado!", "🎨");
+        }
+      } catch (err) {
+        showToast("Erro no upload do adesivo: " + err.message, "❌");
+      }
+    }
+
+    function removeSticker(id) {
+      editorStickers = editorStickers.filter(s => s.id !== id);
+      renderActiveStickersList();
+      renderTimelineOverlays();
+      renderEditorOverlayCanvas();
+    }
+
+    function updateStickerProp(id, field, value) {
+      const s = editorStickers.find(stk => stk.id === id);
+      if (!s) return;
+      if (field === 'size' || field === 'xPct' || field === 'yPct') {
+        s[field] = parseFloat(value) || 0;
+      } else if (field === 'opacity') {
+        s[field] = (parseFloat(value) || 100) / 100;
+      }
+      renderEditorOverlayCanvas();
+    }
+
+    function renderActiveStickersList() {
+      const list = document.getElementById("activeStickersList");
+      if (!list) return;
+      list.innerHTML = "";
+      if (editorStickers.length === 0) {
+        list.innerHTML = `<p class="text-center py-4 text-[11px] text-slate-400">Nenhum adesivo posicionado ainda</p>`;
+        return;
+      }
+      editorStickers.forEach((stk) => {
+        const row = document.createElement("div");
+        row.className = "bg-white dark:bg-slate-800 border border-sky-100 dark:border-slate-700 rounded-xl p-2.5 space-y-1.5 shadow-sm text-xs";
+        row.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="font-bold flex items-center gap-1.5 text-slate-800 dark:text-slate-100">
+              <span>${stk.emoji || '🖼️'}</span> <span>${stk.name}</span>
+            </span>
+            <button onclick="removeSticker('${stk.id}')" class="text-rose-500 hover:text-rose-700 font-bold text-xs" title="Remover">✕</button>
+          </div>
+          <div class="grid grid-cols-3 gap-1.5 text-[10px]">
+            <div>
+              <span class="text-slate-400 block">Pos X: ${stk.xPct}%</span>
+              <input type="range" min="5" max="95" value="${stk.xPct}" oninput="updateStickerProp('${stk.id}', 'xPct', this.value); this.previousElementSibling.innerText = 'Pos X: ' + this.value + '%'" class="w-full">
+            </div>
+            <div>
+              <span class="text-slate-400 block">Pos Y: ${stk.yPct}%</span>
+              <input type="range" min="5" max="95" value="${stk.yPct}" oninput="updateStickerProp('${stk.id}', 'yPct', this.value); this.previousElementSibling.innerText = 'Pos Y: ' + this.value + '%'" class="w-full">
+            </div>
+            <div>
+              <span class="text-slate-400 block">Tam: ${stk.size}px</span>
+              <input type="range" min="40" max="250" value="${stk.size}" oninput="updateStickerProp('${stk.id}', 'size', this.value); this.previousElementSibling.innerText = 'Tam: ' + this.value + 'px'" class="w-full">
+            </div>
+          </div>
+        `;
+        list.appendChild(row);
+      });
+    }
+
+    // ==========================================
+    // CRIAR SUA MARCA D'ÁGUA
+    // ==========================================
+    function toggleWatermarkEnabled(enabled) {
+      editorWatermark.enabled = enabled;
+      renderEditorOverlayCanvas();
+      renderTimelineOverlays();
+      showToast(enabled ? "Marca d'água ativada" : "Marca d'água desativada", "🛡️");
+    }
+
+    function setWatermarkPos(pos) {
+      editorWatermark.position = pos;
+      renderEditorOverlayCanvas();
+    }
+
+    function updateWatermarkValues() {
+      editorWatermark.text = document.getElementById("watermarkTextInput")?.value || "@meucanal";
+      editorWatermark.color = document.getElementById("watermarkColorInput")?.value || "#38bdf8";
+      editorWatermark.fontSize = parseInt(document.getElementById("watermarkFontSizeSelect")?.value, 10) || 34;
+      const op = parseInt(document.getElementById("watermarkOpacitySlider")?.value, 10) || 85;
+      editorWatermark.opacity = op / 100;
+      document.getElementById("watermarkOpacityVal").innerText = `${op}%`;
+      renderEditorOverlayCanvas();
+    }
+
+    async function handleWatermarkLogoUpload(file) {
+      if (!file) return;
+      showToast("Carregando logotipo...", "⏳");
+      const formData = new FormData();
+      formData.append("overlayFile", file);
+      try {
+        const resp = await fetch("/api/editor/upload-overlay", { method: "POST", body: formData });
+        const data = await parseJsonResponse(resp);
+        if (data.success) {
+          editorWatermark.type = 'image';
+          editorWatermark.imagePath = data.filePath;
+          editorWatermark.dataUrl = data.url;
+          document.getElementById("watermarkEnabledCheckbox").checked = true;
+          editorWatermark.enabled = true;
+          renderEditorOverlayCanvas();
+          renderTimelineOverlays();
+          showToast("Logotipo da marca d'água carregado!", "🛡️");
+        }
+      } catch (err) {
+        showToast("Erro no logotipo: " + err.message, "❌");
+      }
+    }
+
+    // ==========================================
+    // OVERLAY CANVAS (DESENHO DE PRÉVIA EM TEMPO REAL)
+    // ==========================================
+    function renderEditorOverlayCanvas() {
+      const overlayCanvas = document.getElementById("editorOverlayCanvas");
+      if (!overlayCanvas || !editorVideo) return;
+      const w = editorVideo.clientWidth || 480;
+      const h = editorVideo.clientHeight || 270;
+      if (overlayCanvas.width !== w || overlayCanvas.height !== h) {
+        overlayCanvas.width = w;
+        overlayCanvas.height = h;
+      }
+      const octx = overlayCanvas.getContext("2d");
+      octx.clearRect(0, 0, w, h);
+
+      // Desenha contorno do Crop se ativado
+      if (editorCrop.enabled) {
+        const cx = (editorCrop.xPct / 100) * w;
+        const cy = (editorCrop.yPct / 100) * h;
+        const cw = (editorCrop.widthPct / 100) * w;
+        const ch = (editorCrop.heightPct / 100) * h;
+        octx.save();
+        octx.strokeStyle = '#06b6d4';
+        octx.lineWidth = 2.5;
+        octx.setLineDash([8, 4]);
+        octx.strokeRect(cx, cy, cw, ch);
+        octx.fillStyle = 'rgba(6, 182, 212, 0.12)';
+        octx.fillRect(cx, cy, cw, ch);
+        octx.restore();
+      }
+
+      // Desenha Marca d'Água se ativada
+      if (editorWatermark.enabled) {
+        octx.save();
+        octx.globalAlpha = editorWatermark.opacity;
+        const fontSz = Math.round((editorWatermark.fontSize / 1080) * h * 1.5) || 18;
+        octx.font = `bold ${fontSz}px 'Plus Jakarta Sans', sans-serif`;
+        const metrics = octx.measureText(editorWatermark.text);
+        const textW = metrics.width;
+        let wx = w - textW - 20;
+        let wy = h - 20;
+        if (editorWatermark.position === 'top-left') {
+          wx = 20; wy = fontSz + 15;
+        } else if (editorWatermark.position === 'top-right') {
+          wx = w - textW - 20; wy = fontSz + 15;
+        } else if (editorWatermark.position === 'bottom-left') {
+          wx = 20; wy = h - 20;
+        } else if (editorWatermark.position === 'center') {
+          wx = (w - textW) / 2; wy = (h + fontSz) / 2;
+        }
+        octx.fillStyle = 'rgba(15, 23, 42, 0.7)';
+        octx.beginPath();
+        octx.roundRect(wx - 8, wy - fontSz - 4, textW + 16, fontSz + 10, 6);
+        octx.fill();
+        octx.fillStyle = editorWatermark.color || '#38bdf8';
+        octx.fillText(editorWatermark.text, wx, wy);
+        octx.restore();
+      }
+
+      // Desenha Stickers ativos
+      if (editorStickers.length > 0) {
+        editorStickers.forEach(stk => {
+          octx.save();
+          octx.globalAlpha = stk.opacity;
+          const sx = (stk.xPct / 100) * w;
+          const sy = (stk.yPct / 100) * h;
+          const scaleSize = Math.round((stk.size / 1080) * h * 1.2) || 40;
+          octx.font = `${scaleSize}px sans-serif`;
+          octx.textAlign = 'center';
+          octx.textBaseline = 'middle';
+          octx.fillText(stk.emoji || '⭐', sx, sy);
+          octx.restore();
+        });
+      }
+    }
+
+    async function handleEditorDirectUpload(file) {
+      if (!file) return;
+      showToast("Carregando vídeo para o editor...", "⏳");
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const resp = await fetch("/api/upload", { method: "POST", body: formData });
+        const data = await parseJsonResponse(resp);
+        if (data.success) {
+          addClipToEditor({
+            id: data.video_id,
+            filePath: null,
+            title: file.name,
+            duration: data.metadata?.duration || 10,
+            width: data.metadata?.width || 1920,
+            height: data.metadata?.height || 1080
+          });
+          showToast("Vídeo adicionado à linha do tempo!", "✅");
+        }
+      } catch (e) {
+        showToast("Erro no upload: " + e.message, "❌");
+      }
+    }
+
+    async function startEditorRender() {
+      if (editorClips.length === 0) {
+        showToast("Adicione pelo menos um clipe na timeline!", "⚠️");
+        return;
+      }
+
+      const btn = document.getElementById("btnRenderEditor");
+      btn.disabled = true;
+      btn.innerText = "⏳ Renderizando Edição...";
+
+      const wrap = document.getElementById("editorProgressWrap");
+      wrap.classList.remove("hidden");
+      document.getElementById("editorDeliveryCard").classList.add("hidden");
+
+      const aspect = document.getElementById("editorAspectRatio").value;
+      const speed = document.getElementById("editorGlobalSpeed").value;
+      const mute = document.getElementById("editorMuteAudio").checked;
+
+      const payload = {
+        clips: editorClips.map(c => ({
+          id: c.id,
+          filePath: c.filePath,
+          trimStart: c.trimStart,
+          trimEnd: c.trimEnd,
+          speed: c.speed || speed,
+          crop: editorCrop.enabled ? editorCrop : null
+        })),
+        globalSettings: {
+          aspectRatio: aspect,
+          speed: speed,
+          muteAudio: mute,
+          crop: editorCrop,
+          cropEnabled: editorCrop.enabled,
+          stickers: editorStickers,
+          watermark: editorWatermark,
+          title: `Vídeo Editado (${editorClips.length} clipes)`
+        }
+      };
+
+      try {
+        const resp = await fetch("/api/editor/render", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await parseJsonResponse(resp);
+
+        if (data.success && data.task_id) {
+          activeEditorTaskId = data.task_id;
+          setupEditorSseStream(activeEditorTaskId);
+        } else {
+          throw new Error(data.error || "Erro ao iniciar renderização");
+        }
+      } catch (err) {
+        showToast("Erro na edição: " + err.message, "❌");
+        btn.disabled = false;
+        btn.innerText = "🚀 Renderizar e Salvar Vídeo Editado";
+        wrap.classList.add("hidden");
+      }
+    }
+
+    function setupEditorSseStream(taskId) {
+      const sseUrl = `/api/progress/${taskId}/stream`;
+      const sse = new EventSource(sseUrl);
+
+      sse.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          const pct = Math.round(data.percent !== undefined ? data.percent : (data.progress || 0) * 100);
+          document.getElementById("editorProgressBar").style.width = pct + "%";
+          document.getElementById("editorProgressPercent").innerText = pct + "%";
+          document.getElementById("editorProgressStatus").innerText = data.status || `Renderizando: ${pct}%`;
+
+          if (data.done) {
+            sse.close();
+            document.getElementById("btnRenderEditor").disabled = false;
+            document.getElementById("btnRenderEditor").innerText = "🚀 Renderizar e Salvar Vídeo Editado";
+            lastEditorRenderedUrl = data.result_url || `/api/result/${taskId}`;
+            document.getElementById("btnEditorDownload").href = data.download_url || `/api/download/${taskId}`;
+            document.getElementById("editorDeliveryCard").classList.remove("hidden");
+            showToast("Vídeo editado com sucesso!", "🎉");
+            loadGalleryFromBackend();
+          } else if (data.error) {
+            sse.close();
+            showToast("Erro na renderização: " + data.error, "❌");
+            document.getElementById("btnRenderEditor").disabled = false;
+            document.getElementById("btnRenderEditor").innerText = "🚀 Renderizar e Salvar Vídeo Editado";
+          }
+        } catch {}
+      };
+
+      sse.onerror = () => {
+        sse.close();
+      };
+    }
+
+    function playEditorResultInPlayer() {
+      if (!lastEditorRenderedUrl) return;
+      editorVideo.src = lastEditorRenderedUrl;
+      editorVideo.classList.remove("hidden");
+      document.getElementById("editorPreviewPlaceholder").classList.add("hidden");
+      editorVideo.play().catch(() => {});
+    }
+
+    // ==========================================
+    // FUNÇÕES DE UPLOAD E CONTROLE (ABA INPAINTING)
+    // ==========================================
     async function parseJsonResponse(resp, fallbackMsg = "Erro na requisição") {
       const cType = resp.headers.get("content-type") || "";
       if (cType.includes("application/json")) {
@@ -581,7 +2473,6 @@
 
       originalMediaUrl = URL.createObjectURL(file);
 
-      // Exibe informações no badge
       document.getElementById("infoName").innerText = file.name;
       document.getElementById("infoDetails").innerText = `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
       document.getElementById("mediaTypeTag").innerText = isImg ? "Imagem" : "Vídeo";
@@ -591,18 +2482,22 @@
       if (isImg) {
         movingWrap.classList.add("hidden");
         video.classList.add("hidden");
+        document.getElementById("playerControlsBar").classList.add("hidden");
         image.src = originalMediaUrl;
         image.classList.remove("hidden");
         document.getElementById("placeholderPreview").classList.add("hidden");
+        setPlayerInteractionMode('draw');
       } else {
         movingWrap.classList.remove("hidden");
         image.classList.add("hidden");
         video.src = originalMediaUrl;
         video.classList.remove("hidden");
         document.getElementById("placeholderPreview").classList.add("hidden");
+        document.getElementById("playerControlsBar").classList.remove("hidden");
+        setPlayerInteractionMode('watch');
       }
 
-      // Envia arquivo para o servidor acelerado
+      // Envia arquivo para o servidor
       const upWrap = document.getElementById("uploadProgressWrap");
       const upBar = document.getElementById("uploadProgressBar");
       const upPct = document.getElementById("uploadProgressPercent");
@@ -637,7 +2532,7 @@
               }
               upWrap.classList.add("hidden");
               showToast("Arquivo carregado e pronto para IA!", "⚡");
-              document.getElementById("statusText").innerText = "Pronto! Selecione a marca d'água.";
+              document.getElementById("statusText").innerText = "Pronto! Selecione a marca d'água no player.";
               return;
             }
           } catch {}
@@ -651,6 +2546,8 @@
     // Inicialização do Canvas para desenho
     function initCanvas() {
       if (video.classList.contains("hidden")) return;
+      canvas.style.top = (video.offsetTop || 0) + "px";
+      canvas.style.left = (video.offsetLeft || 0) + "px";
       canvas.width = video.clientWidth;
       canvas.height = video.clientHeight;
       redrawBoxes();
@@ -658,6 +2555,8 @@
 
     function initImageCanvas() {
       if (image.classList.contains("hidden")) return;
+      canvas.style.top = (image.offsetTop || 0) + "px";
+      canvas.style.left = (image.offsetLeft || 0) + "px";
       canvas.width = image.clientWidth;
       canvas.height = image.clientHeight;
       videoMeta = { width: image.naturalWidth, height: image.naturalHeight };
@@ -673,6 +2572,7 @@
 
     // Interatividade do Canvas (Desenho com o mouse)
     canvas.addEventListener("mousedown", (e) => {
+      if (playerInteractionMode !== 'draw') return;
       const rect = canvas.getBoundingClientRect();
       startX = e.clientX - rect.left;
       startY = e.clientY - rect.top;
@@ -680,7 +2580,7 @@
     });
 
     canvas.addEventListener("mousemove", (e) => {
-      if (!isDrawing) return;
+      if (!isDrawing || playerInteractionMode !== 'draw') return;
       const rect = canvas.getBoundingClientRect();
       const currentX = e.clientX - rect.left;
       const currentY = e.clientY - rect.top;
@@ -696,7 +2596,7 @@
     });
 
     canvas.addEventListener("mouseup", (e) => {
-      if (!isDrawing) return;
+      if (!isDrawing || playerInteractionMode !== 'draw') return;
       isDrawing = false;
       const rect = canvas.getBoundingClientRect();
       const endX = e.clientX - rect.left;
@@ -826,7 +2726,7 @@
       }
     }
 
-    // Detecção com IA (Sem caixas aleatórias!)
+    // Detecção com IA
     async function detectWithAI() {
       if (!currentVideoId) {
         showToast("Carregue uma mídia primeiro!", "⚠️");
@@ -1005,24 +2905,52 @@
         document.getElementById("metricEta").classList.remove("hidden");
       }
 
-      // Entrega Final Perfeita do Processamento
+      if (data.readyForEditing) {
+        finishProcessing();
+        currentVideoId = data.video_id;
+        videoMeta = data.metadata || {};
+        isCurrentMediaImage = Boolean(videoMeta.is_image);
+        originalMediaUrl = data.video_url;
+
+        document.getElementById("infoName").innerText = data.filename || "Vídeo baixado";
+        document.getElementById("infoDetails").innerText = `${videoMeta.width || 1280}x${videoMeta.height || 720}`;
+        document.getElementById("mediaTypeTag").innerText = isCurrentMediaImage ? "Imagem" : "Vídeo";
+        document.getElementById("mediaInfoBadge").classList.remove("hidden");
+
+        const resBadge = document.getElementById("resolutionBadge");
+        if (videoMeta.width && videoMeta.height) {
+          resBadge.innerText = `${videoMeta.width}x${videoMeta.height}`;
+          resBadge.classList.remove("hidden");
+        }
+
+        document.getElementById("placeholderPreview").classList.add("hidden");
+        image.classList.add("hidden");
+        video.src = data.video_url;
+        video.classList.remove("hidden");
+        document.getElementById("playerControlsBar").classList.remove("hidden");
+
+        document.getElementById("statusText").innerText = "Download concluído! Marque a marca d'água no player ou use 'Detectar com IA'.";
+        showToast("Vídeo baixado e pronto!", "🎬");
+        return;
+      }
+
       if (data.done) {
         finishProcessing();
-        cleanMediaUrl = data.result_url || `/api/result/${data.taskId || activeTaskId}`;
-        const downloadUrl = data.download_url || `/api/download/${data.taskId || activeTaskId}`;
+        lastCleanTaskId = data.taskId || activeTaskId;
+        cleanMediaUrl = data.result_url || `/api/result/${lastCleanTaskId}`;
+        const downloadUrl = data.download_url || `/api/download/${lastCleanTaskId}`;
 
-        // Configura botão de download final
         const btnDl = document.getElementById("btnDownloadFinal");
         btnDl.href = downloadUrl;
 
-        // Exibe o card de entrega final com opções de visualização
         document.getElementById("deliveryCard").classList.remove("hidden");
         document.getElementById("comparisonToggleWrap").classList.remove("hidden");
-        document.getElementById("statusText").innerText = "✅ Processamento finalizado! Clique em Baixar ou Assista acima.";
-        showToast("Vídeo/Imagem limpa com sucesso!", "🎉");
+        document.getElementById("statusText").innerText = "✅ Concluído! O vídeo foi salvo na galeria e está pronto para download ou edição.";
+        showToast("Mídia limpa com sucesso!", "🎉");
 
-        // Carrega automaticamente o resultado limpo no player!
+        // Carrega automaticamente o resultado limpo e atualiza a galeria
         loadCleanResultIntoPlayer();
+        loadGalleryFromBackend();
       } else if (data.cancelled) {
         finishProcessing();
         document.getElementById("statusText").innerText = "Processamento cancelado.";
@@ -1042,9 +2970,12 @@
       } else {
         video.src = cleanMediaUrl;
         video.classList.remove("hidden");
+        document.getElementById("playerControlsBar").classList.remove("hidden");
+        // Desativa pointer-events do canvas para os controles funcionarem imediatamente
+        setPlayerInteractionMode('watch');
         video.play().catch(() => {});
       }
-      ctx.clearRect(0, 0, canvas.width, canvas.height); // limpa caixas sobrepostas para visualização limpa
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       toggleComparisonView('clean');
     }
 
@@ -1101,8 +3032,11 @@
       } catch {}
     }
 
-    function dismissFfmpegBanner() {
-      document.getElementById("ffmpegAlertBanner").classList.add("hidden");
+    function formatSecondsToTime(seconds) {
+      const s = Math.max(0, Math.floor(seconds));
+      const mins = Math.floor(s / 60);
+      const secs = s % 60;
+      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
 
     // Suporte para URL Remota

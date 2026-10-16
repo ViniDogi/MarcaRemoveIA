@@ -1,24 +1,7 @@
-# Ambientes virtuais
-.venv/
-venv/
-ENV/
-env/
+# Dependências do Node.js
 node_modules/
 
-
-# Caches do Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.pytest_cache/
-
-# Executáveis e Builds do PyInstaller
-build/
-dist/
-*.spec
-
-# Binários pesados locais (FFmpeg ~100MB)
+# Binários pesados locais
 bin/
 *.exe
 
@@ -31,6 +14,10 @@ web_uploads/
 web_outputs/
 logs/
 
+# Modelos locais ONNX
+models/*.onnx
+models/*.tmp
+
 # Chaves de API e Segredos
 config.json
 .env
@@ -42,3 +29,4 @@ config.json
 *.swp
 *.swo
 .vercel
+

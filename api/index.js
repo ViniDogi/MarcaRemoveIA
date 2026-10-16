@@ -30,7 +30,7 @@ export default function handler(req, res) {
         return res.status(200).json({
           status: 'ok',
           app: 'MarcaRemoveIA',
-          version: '2.0.0',
+          version: '4.0.0',
           platform: 'vercel-serverless',
           isVercel: true
         });

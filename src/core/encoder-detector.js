@@ -24,12 +24,12 @@ export const ENCODER_LABELS = {
  * Não mistura flags de um encoder em outro.
  */
 export const ENCODER_PARAMS = {
-  h264_nvenc: ['-preset', 'p4', '-rc', 'vbr', '-cq', '23'],
-  h264_qsv: ['-global_quality', '23'],
-  h264_amf: ['-quality', 'balanced'],
-  h264_vaapi: ['-qp', '23'],
-  h264_videotoolbox: ['-b:v', '4M'],
-  libx264: ['-preset', 'veryfast', '-crf', '23', '-threads', '0']
+  h264_nvenc: ['-preset', 'p6', '-rc', 'vbr', '-cq', '18'],
+  h264_qsv: ['-global_quality', '18'],
+  h264_amf: ['-quality', 'quality'],
+  h264_vaapi: ['-qp', '18'],
+  h264_videotoolbox: ['-b:v', '8M'],
+  libx264: ['-preset', 'slow', '-crf', '18', '-threads', '0']
 };
 
 export const COMMON_OUTPUT_FLAGS = [

@@ -36,6 +36,8 @@ import {
   updateYtDlpBinary,
   validateUrlAndCheckSSRF
 } from './core/downloader.js';
+import { galleryDb } from './core/gallery-db.js';
+import { VideoEditor } from './core/video-editor.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,6 +54,71 @@ try {
   if (!fs.existsSync(LOGS_DIR)) fs.mkdirSync(LOGS_DIR, { recursive: true });
 } catch {
   // Ignora erro em sistemas somente-leitura (Vercel Lambda)
+}
+
+/**
+ * Função universal para streaming de vídeo com suporte robusto a HTTP 206 (Partial Content).
+ * Essencial para compatibilidade com tags <video> HTML5 no Chrome, Firefox e Safari.
+ */
+function streamVideoWithRange(filePath, req, res) {
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).send('Vídeo não encontrado.');
+  }
+
+  const stat = fs.statSync(filePath);
+  const fileSize = stat.size;
+  const range = req.headers.range;
+
+  res.setHeader('Accept-Ranges', 'bytes');
+  res.setHeader('Content-Type', 'video/mp4');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+
+  if (range) {
+    const parts = range.replace(/bytes=/, '').split('-');
+    const start = parseInt(parts[0], 10);
+    const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+    if (start >= fileSize || end >= fileSize) {
+      res.setHeader('Content-Range', `bytes */${fileSize}`);
+      return res.status(416).send('Requested range not satisfiable');
+    }
+
+    const chunksize = end - start + 1;
+    const file = fs.createReadStream(filePath, { start, end });
+    res.writeHead(206, {
+      'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+      'Accept-Ranges': 'bytes',
+      'Content-Length': chunksize,
+      'Content-Type': 'video/mp4'
+    });
+    file.pipe(res);
+  } else {
+    res.writeHead(200, {
+      'Content-Length': fileSize,
+      'Content-Type': 'video/mp4'
+    });
+    fs.createReadStream(filePath).pipe(res);
+  }
+}
+
+/**
+ * Localiza o caminho de saída de um arquivo por taskId de forma resiliente
+ */
+function resolveOutputPath(taskId) {
+  const task = tasks.get(taskId);
+  if (task?.outputPath && fs.existsSync(task.outputPath)) {
+    return task.outputPath;
+  }
+  const galleryItem = galleryDb.getById(taskId);
+  if (galleryItem?.filePath && fs.existsSync(galleryItem.filePath)) {
+    return galleryItem.filePath;
+  }
+  if (fs.existsSync(OUTPUT_DIR)) {
+    const files = fs.readdirSync(OUTPUT_DIR);
+    const match = files.find((f) => f.includes(taskId));
+    if (match) return path.join(OUTPUT_DIR, match);
+  }
+  return null;
 }
 
 const app = express();
@@ -104,7 +171,7 @@ app.get('/api/health', (req, res) => {
   return res.json({
     status: 'ok',
     app: 'MarcaRemoveIA',
-    version: '2.0.0',
+    version: '4.0.0',
     platform: process.platform,
     isVercel
   });
@@ -122,6 +189,17 @@ app.get('/', (req, res) => {
     }
   }
   return res.status(404).send('<h1>MarcaRemoveIA Web - Arquivo index.html não encontrado</h1>');
+});
+
+// 1.1 Logotipo Oficial e Favicon
+app.get(['/logo.svg', '/favicon.ico', '/favicon.svg'], (req, res) => {
+  const logoPath = path.join(projectRoot, 'logo.svg');
+  if (fs.existsSync(logoPath)) {
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.sendFile(logoPath);
+  }
+  return res.status(404).send('Logo não encontrada');
 });
 
 // 2. Hardware Encoders
@@ -168,7 +246,12 @@ app.get('/api/video/:filename', (req, res) => {
     return res.status(404).send('Vídeo não encontrado.');
   }
 
-  return res.sendFile(filePath);
+  const ext = path.extname(filePath).toLowerCase();
+  if (['.jpg', '.jpeg', '.png', '.webp', '.bmp'].includes(ext)) {
+    return res.sendFile(filePath);
+  }
+
+  return streamVideoWithRange(filePath, req, res);
 });
 
 // 5. Extração de Quadro para Preview
@@ -392,6 +475,19 @@ app.post('/api/process', async (req, res) => {
           fs.writeFileSync(outputPath, cleanBuffer);
         }
 
+        try {
+          await galleryDb.addMedia({
+            id: taskId,
+            title: path.basename(inputPath),
+            mediaType: 'image',
+            filePath: outputPath,
+            size: fs.statSync(outputPath).size,
+            source: 'inpainting'
+          });
+        } catch (gErr) {
+          console.warn('[GalleryDB] Aviso ao salvar imagem:', gErr.message);
+        }
+
         broadcastProgress(taskId, {
           status: 'Imagem regenerada com sucesso!',
           progress: 1.0,
@@ -524,6 +620,19 @@ app.post('/api/process-image', async (req, res) => {
       fs.writeFileSync(outputPath, cleanBuffer);
     }
 
+    try {
+      await galleryDb.addMedia({
+        id: taskId,
+        title: path.basename(inputPath),
+        mediaType: 'image',
+        filePath: outputPath,
+        size: fs.existsSync(outputPath) ? fs.statSync(outputPath).size : cleanBuffer.length,
+        source: 'inpainting'
+      });
+    } catch (gErr) {
+      console.warn('[GalleryDB] Aviso ao salvar imagem:', gErr.message);
+    }
+
     const taskData = {
       taskId,
       status: 'Concluído com sucesso!',
@@ -598,6 +707,9 @@ app.post('/api/cancel/:taskId', (req, res) => {
   if (task.processor) {
     task.processor.cancel();
   }
+  if (task.editor) {
+    task.editor.cancel();
+  }
   task.cancelled = true;
   task.status = 'Cancelamento solicitado...';
   broadcastProgress(taskId, task);
@@ -605,51 +717,222 @@ app.post('/api/cancel/:taskId', (req, res) => {
   return res.json({ success: true, message: 'Cancelamento enviado com sucesso.' });
 });
 
-// 11. Visualização e Streaming do Resultado Limpo Final (Preview Direto)
+// 11. Visualização e Streaming do Resultado Limpo Final (Preview Direto com Range HTTP 206)
 app.get('/api/result/:taskId', (req, res) => {
   const { taskId } = req.params;
-  const task = tasks.get(taskId);
-  if (!task || !task.done) {
-    return res.status(404).send('Resultado ainda não disponível.');
-  }
+  const filePath = resolveOutputPath(taskId);
 
-  const filePath = task.outputPath;
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).send('Arquivo final não encontrado.');
+  if (!filePath || !fs.existsSync(filePath)) {
+    return res.status(404).send('Resultado ainda não disponível ou arquivo não encontrado.');
   }
 
   const ext = path.extname(filePath).toLowerCase();
   if (['.jpg', '.jpeg'].includes(ext)) {
     res.setHeader('Content-Type', 'image/jpeg');
+    return res.sendFile(filePath);
   } else if (ext === '.png') {
     res.setHeader('Content-Type', 'image/png');
+    return res.sendFile(filePath);
   } else if (ext === '.webp') {
     res.setHeader('Content-Type', 'image/webp');
-  } else {
-    res.setHeader('Content-Type', 'video/mp4');
+    return res.sendFile(filePath);
+  } else if (['.mp3', '.m4a', '.wav', '.aac', '.ogg'].includes(ext)) {
+    const mime = ext === '.mp3' ? 'audio/mpeg' : (ext === '.wav' ? 'audio/wav' : 'audio/mp4');
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Accept-Ranges', 'bytes');
+    return res.sendFile(filePath);
   }
 
-  return res.sendFile(filePath);
+  // Se for vídeo, transmite com Range HTTP 206 para compatibilidade total com controles HTML5 (Seek, Play, Pause)
+  return streamVideoWithRange(filePath, req, res);
 });
 
 // 11.1 Baixar Vídeo ou Imagem Final
 app.get('/api/download/:taskId', (req, res) => {
   const { taskId } = req.params;
-  const task = tasks.get(taskId);
-  if (!task || !task.done) {
-    return res.status(400).send('Arquivo ainda não finalizado.');
-  }
+  const filePath = resolveOutputPath(taskId);
 
-  const filePath = task.outputPath;
-  if (!fs.existsSync(filePath)) {
+  if (!filePath || !fs.existsSync(filePath)) {
     return res.status(404).send('Arquivo final não encontrado no disco.');
   }
 
   const ext = path.extname(filePath).toLowerCase() || '.mp4';
   const isImg = ['.jpg', '.jpeg', '.png', '.webp', '.bmp'].includes(ext);
-  const defaultName = isImg ? `imagem_sem_marca_ia${ext}` : 'video_sem_marca_ia.mp4';
+  const isAudio = ['.mp3', '.m4a', '.wav', '.aac', '.ogg'].includes(ext);
+  const defaultName = isImg ? `imagem_sem_marca_ia${ext}` : (isAudio ? `audio_extraido${ext}` : 'video_sem_marca_ia.mp4');
 
   return res.download(filePath, defaultName);
+});
+
+// 11.2 Galeria de Mídias Processadas (Banco de Dados Local)
+app.get('/api/gallery', (req, res) => {
+  try {
+    const items = galleryDb.getAll();
+    return res.json({ success: true, items });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/gallery/thumbnail/:id', (req, res) => {
+  const item = galleryDb.getById(req.params.id);
+  if (item?.thumbnailPath && fs.existsSync(item.thumbnailPath)) {
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.sendFile(item.thumbnailPath);
+  }
+  if (item?.filePath && fs.existsSync(item.filePath) && item.mediaType === 'image') {
+    return res.sendFile(item.filePath);
+  }
+  return res.status(404).send('Miniatura não encontrada.');
+});
+
+app.delete('/api/gallery/:id', (req, res) => {
+  try {
+    const ok = galleryDb.deleteMedia(req.params.id);
+    return res.json({ success: ok });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 11.3 Editor de Vídeo Integrado: Renderizar Edição (Corte, Junção, Velocidade, Proporção)
+app.post('/api/editor/render', async (req, res) => {
+  const { clips = [], globalSettings = {} } = req.body;
+  if (!Array.isArray(clips) || clips.length === 0) {
+    return res.status(400).json({ error: 'Nenhum clipe selecionado para edição.' });
+  }
+
+  const resolvedClips = [];
+  for (const c of clips) {
+    let filePath = c.filePath;
+    if (!filePath && c.id) {
+      filePath = resolveOutputPath(c.id);
+    }
+    if (!filePath && c.id) {
+      const files = fs.readdirSync(UPLOAD_DIR);
+      const match = files.find((f) => f.startsWith(c.id));
+      if (match) filePath = path.join(UPLOAD_DIR, match);
+    }
+    if (!filePath || !fs.existsSync(filePath)) {
+      return res.status(400).json({ error: `Arquivo do clipe ${c.id || c.name || ''} não encontrado no servidor.` });
+    }
+    resolvedClips.push({
+      ...c,
+      filePath
+    });
+  }
+
+  const taskId = `edit_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
+  const outputPath = path.join(OUTPUT_DIR, `clean_${taskId}.mp4`);
+
+  const editor = new VideoEditor();
+  const taskData = {
+    taskId,
+    status: 'Iniciando renderização da edição...',
+    progress: 0.0,
+    fps: 0.0,
+    eta: '--:--:--',
+    done: false,
+    cancelled: false,
+    error: null,
+    outputPath,
+    editor,
+    media_type: 'video',
+    download_url: `/api/download/${taskId}`,
+    result_url: `/api/result/${taskId}`
+  };
+  tasks.set(taskId, taskData);
+
+  (async () => {
+    try {
+      broadcastProgress(taskId, { status: 'Processando cortes e união com IA...', progress: 0.05 });
+      const result = await editor.render({
+        clips: resolvedClips,
+        globalSettings,
+        taskId,
+        onProgress: (p) => {
+          broadcastProgress(taskId, {
+            status: p.status,
+            progress: p.progress,
+            percent: p.percent,
+            fps: p.fps,
+            eta: p.eta
+          });
+        }
+      });
+
+      if (result.cancelled) {
+        broadcastProgress(taskId, { status: 'Edição cancelada pelo usuário.', done: false, cancelled: true });
+      } else if (result.success) {
+        broadcastProgress(taskId, {
+          status: 'Vídeo editado e renderizado com sucesso!',
+          progress: 1.0,
+          done: true,
+          taskId,
+          media_type: 'video',
+          download_url: `/api/download/${taskId}`,
+          result_url: `/api/result/${taskId}`,
+          galleryItem: result.galleryItem
+        });
+      }
+    } catch (err) {
+      console.error(`Erro ao renderizar edição ${taskId}:`, err);
+      broadcastProgress(taskId, {
+        status: 'Erro na renderização da edição',
+        error: err.message,
+        done: false
+      });
+    }
+  })();
+
+  return res.json({ success: true, task_id: taskId });
+});
+
+// 11.4 Editor de Vídeo: Separar Áudio do Vídeo (Extração MP3)
+app.post('/api/editor/extract-audio', async (req, res) => {
+  const { id, filePath: reqPath } = req.body;
+  let filePath = reqPath;
+
+  if (!filePath && id) {
+    filePath = resolveOutputPath(id);
+  }
+  if (!filePath && id) {
+    const files = fs.readdirSync(UPLOAD_DIR);
+    const match = files.find((f) => f.startsWith(id));
+    if (match) filePath = path.join(UPLOAD_DIR, match);
+  }
+
+  if (!filePath || !fs.existsSync(filePath)) {
+    return res.status(400).json({ error: 'Arquivo de vídeo não encontrado para extração de áudio.' });
+  }
+
+  const taskId = `audio_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
+  try {
+    const editor = new VideoEditor();
+    const result = await editor.extractAudio({ filePath, taskId });
+    return res.json({
+      success: true,
+      task_id: taskId,
+      audio_url: result.resultUrl,
+      download_url: result.downloadUrl,
+      gallery_item: result.galleryItem
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 11.5 Editor de Vídeo: Upload de Adesivo ou Marca d'Água (PNG / Imagem)
+app.post('/api/editor/upload-overlay', upload.single('overlayFile'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'Nenhum arquivo de sobreposição enviado.' });
+  }
+  return res.json({
+    success: true,
+    filePath: req.file.path,
+    url: `/api/video/${req.file.filename}`
+  });
 });
 
 // 12. Obter Detalhes do Log do FFmpeg (para modal técnico)
@@ -872,6 +1155,14 @@ if (!process.env.VERCEL) {
       console.log(`[Hardware] Encoder primário: ${hw.primaryEncoder}`);
     } catch (e) {
       console.warn('[Hardware] Aviso ao detectar encoders:', e.message);
+    }
+
+    // Inicializa e sincroniza mídias já processadas na galeria
+    try {
+      await galleryDb.scanExistingOutputs();
+      console.log(`[Galeria] Banco de mídias pronto com ${galleryDb.getAll().length} item(ns).`);
+    } catch (e) {
+      console.warn('[Galeria] Aviso ao sincronizar galeria:', e.message);
     }
   });
 }

@@ -264,61 +264,72 @@ export async function reconstructExemplarPatches({
   const rawImage = await sharp(imageBuffer).removeAlpha().raw().toBuffer();
   const outputRaw = new Uint8Array(rawImage);
 
-  // Varredura concêntrica (das bordas da marca para o interior)
-  // Substitui os pixels marcados procurando o melhor pixel correspondente nas bordas limpas
+  // Reconstrução multidirecional baseada em difusão de gradientes e síntese textural (Telea/Exemplar híbrido)
   for (const box of boxes) {
     const bx = Math.max(0, Math.min(Math.round(box.x), width - 1));
     const by = Math.max(0, Math.min(Math.round(box.y), height - 1));
     const bw = Math.max(2, Math.min(Math.round(box.w), width - bx));
     const bh = Math.max(2, Math.min(Math.round(box.h), height - by));
 
-    const patchSize = 5;
-    const halfPatch = Math.floor(patchSize / 2);
-    const searchRadius = Math.max(16, Math.round(Math.max(bw, bh) * 0.4));
+    const maxSearch = Math.max(20, Math.round(Math.max(bw, bh) * 0.6));
 
-    // Itera dentro da área delimitada
+    // Varredura dos pixels da máscara para reconstrução contínua e nítida
     for (let y = by; y < by + bh; y++) {
       for (let x = bx; x < bx + bw; x++) {
         const maskIdx = y * width + x;
-        if (mask[maskIdx] === 0) continue; // Pixel de fundo já preservado!
+        if (mask[maskIdx] === 0) continue; // Fundo original preservado
 
-        // Busca o pixel de fundo mais próximo e coerente na vizinhança
-        let bestDist = Infinity;
-        let bestSrcX = x;
-        let bestSrcY = y;
+        // Amostra nos 4 eixos principais (Cima, Baixo, Esquerda, Direita) + Diagonais
+        let totalWeight = 0;
+        let accR = 0, accG = 0, accB = 0;
 
-        // Procura em espiral ao redor
-        for (let r = 1; r <= searchRadius; r += 2) {
-          let found = false;
-          for (let dy = -r; dy <= r; dy += 2) {
-            for (let dx = -r; dx <= r; dx += 2) {
-              const nx = x + dx;
-              const ny = y + dy;
-              if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                if (mask[ny * width + nx] === 0) {
-                  // Pixel não marcado (fundo limpo)
-                  const d = dx * dx + dy * dy;
-                  if (d < bestDist) {
-                    bestDist = d;
-                    bestSrcX = nx;
-                    bestSrcY = ny;
-                    found = true;
-                  }
-                }
-              }
+        const directions = [
+          { dx: 0, dy: -1 }, // Topo
+          { dx: 0, dy: 1 },  // Base
+          { dx: -1, dy: 0 }, // Esquerda
+          { dx: 1, dy: 0 },  // Direita
+          { dx: -1, dy: -1 },
+          { dx: 1, dy: -1 },
+          { dx: -1, dy: 1 },
+          { dx: 1, dy: 1 }
+        ];
+
+        for (const dir of directions) {
+          for (let step = 1; step <= maxSearch; step++) {
+            const nx = x + dir.dx * step;
+            const ny = y + dir.dy * step;
+            if (nx < 0 || nx >= width || ny < 0 || ny >= height) break;
+
+            if (mask[ny * width + nx] === 0) {
+              // Encontrou pixel de borda limpa
+              const dist = step;
+              const weight = 1.0 / (dist * dist + 0.1);
+              const srcIdx = (ny * width + nx) * 3;
+
+              accR += rawImage[srcIdx] * weight;
+              accG += rawImage[srcIdx + 1] * weight;
+              accB += rawImage[srcIdx + 2] * weight;
+              totalWeight += weight;
+              break;
             }
           }
-          if (found && bestDist < 100) break;
         }
 
-        // Copia a textura e os canais RGB do pixel de referência
         const targetIdx = (y * width + x) * 3;
-        const sourceIdx = (bestSrcY * width + bestSrcX) * 3;
+        if (totalWeight > 0) {
+          // Síntese harmônica com preservação de contraste
+          let r = Math.round(accR / totalWeight);
+          let g = Math.round(accG / totalWeight);
+          let b = Math.round(accB / totalWeight);
 
-        // Adiciona suave interpolação bilateral com leve variação de grão natural
-        outputRaw[targetIdx] = outputRaw[sourceIdx];
-        outputRaw[targetIdx + 1] = outputRaw[sourceIdx + 1];
-        outputRaw[targetIdx + 2] = outputRaw[sourceIdx + 2];
+          // Micro-variação de grão natural (evita aparência plástica ou mancha leitosa)
+          const grain = (Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1;
+          const noise = Math.round((grain - 0.5) * 3);
+
+          outputRaw[targetIdx] = Math.max(0, Math.min(255, r + noise));
+          outputRaw[targetIdx + 1] = Math.max(0, Math.min(255, g + noise));
+          outputRaw[targetIdx + 2] = Math.max(0, Math.min(255, b + noise));
+        }
       }
     }
   }

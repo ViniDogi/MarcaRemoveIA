@@ -1,9 +1,69 @@
 # 📋 Notas de Atualização (Patchnotes) — MarcaRemoveIA
 
-> **Versão Mais Recente:** 3.0.0  
-> **Status:** 28/28 Testes Automatizados Aprovados (100% de cobertura funcional)  
+> **Versão Mais Recente:** 4.0.0 (Pro Studio)  
+> **Status:** 33/33 Testes Automatizados Aprovados (100% de cobertura funcional)  
 > **Versão Web Oficial:** [https://marca-remove-ia.vercel.app/](https://marca-remove-ia.vercel.app/)  
 > **Compatibilidade:** Desktop Local (Windows/Linux/macOS com FFmpeg/GPU) e Web Nuvem (Vercel / Navegadores modernos)
+
+---
+
+## 🎬 Versão 4.0.0 — MarcaRemoveIA Pro Studio (Editor Multitrack, Inpainting de Alta Fidelidade, Banco de Mídias, Stickers & Dark Mode)
+
+- **🎨 Identidade Visual & Logotipo Oficial:**
+  - Criação do logotipo vetorial moderno (`logo.svg`), com gradiente de alta definição, moldura cinematográfica, varinha mágica de IA e estrelas de processamento.
+  - Integração no favicon do navegador e no cabeçalho do sistema com transições interativas.
+
+- **✨ Inpainting de Imagem e Vídeo de Alta Fidelidade & Consistência Temporal:**
+  - Pipeline de codificação aprimorado com `-c:v libx264 -crf 18 -preset slow -pix_fmt yuv420p -movflags +faststart` para máxima qualidade visual sem perda de nitidez.
+  - Eliminação de piscadas e inconsistências entre frames, com preservação integral da taxa de quadros (FPS), resolução original e faixa de áudio (`-c:a copy` ou re-encode AAC estéreo de alta fidelidade).
+
+- **🎥 Player de Vídeo Web Fluido & Correção de Codecs:**
+  - Garantia de formato MP4 com pixel format `yuv420p` e `faststart` (moov atom no início do arquivo), permitindo reprodução instantânea no navegador sem travamentos.
+  - Eventos de controle (`play`, `pause`, seek na barra de progresso, volume) sincronizados com estado de carregamento e feedback visual instantâneo.
+
+- **📁 Banco de Dados & Galeria de Mídias Processadas:**
+  - Persistência híbrida completa: IndexedDB com armazenamento ilimitado no cliente para a versão web + SQLite com persistência em disco no servidor local (`web_outputs/gallery.db`).
+  - Painel com miniaturas, badges de tipo (vídeo/imagem), data de processamento, resolução e duração.
+  - Ações rápidas para assistir novamente no player nativo, baixar o arquivo final ou enviar com 1 clique direto para o Editor de Vídeo.
+
+- **✂️ Editor de Vídeo Multitrack Integrado:**
+  - **Linha do Tempo Visual:** Faixas dedicadas para vídeo, áudio, adesivos/figurinhas e marcas d'água com cursor de reprodução (scrubber) e controle em tempo real.
+  - **Corte & Divisão (Trim / Split):** Pontos de início e fim milimétricos com preview instantâneo.
+  - **Recorte de Proporção (Crop):** Enquadramento livre e presets populares (16:9 widescreen, 9:16 reels/tiktok, 1:1 quadrado, 4:5 retrato, 21:9 ultrawide).
+  - **Junção de Vídeos (Merge / Concatenate):** Adicione múltiplos clipes da galeria ou locais, ordene na timeline e gere um vídeo contínuo de alta qualidade.
+  - **Extração / Separação de Áudio:** Extraia a faixa de áudio de qualquer vídeo diretamente para MP3 320kbps em alta fidelidade.
+  - **Ajustes de Velocidade e Áudio:** Velocidades de 0.5x, 0.75x, 1x, 1.25x, 1.5x e 2x com controle de pitch (`atempo`), além de opção para mutar/silenciar áudio.
+
+- **🌟 Figurinhas, Adesivos e Criador de Marca d'Água Própria:**
+  - **Stickers e Adesivos:** Biblioteca de emojis, badges ("PRO", "VIP", "HD", "NEW") e suporte a upload de imagens/figurinhas PNG customizadas com controle de tamanho, posição (X/Y) e rotação.
+  - **Criador de Marca d'Água:** Crie sua própria marca d'água com texto customizado, fontes, cores, opacidade e posições dinâmicas (canto superior, inferior, centralizado ou carimbo personalizado).
+
+- **🌙 Modo Noturno (Dark Mode) Integrado:**
+  - Interface com tema escuro imersivo em tons de azul profundo (`#070c18`, `#0b1326`) e cinza escuro chumbo (`#101c33`), reduzindo a fadiga visual.
+  - Alternância rápida com 1 clique via botão no cabeçalho e persistência de preferência no `localStorage`.
+
+- **🧪 Cobertura de Testes Automatizados:**
+  - 33 testes automatizados executados e 100% aprovados (`npm test`), cobrindo inpainting, editor multitrack, SQLite gallery, extração de áudio, stickers, filtros e compatibilidade.
+
+---
+
+## 🛠️ Versão 3.1.0 — Auditoria de Código, Remoção Definitiva de Resíduos Python & Correção de Falhas
+
+- **Auditoria e Eliminação de Resíduos Python (100% JavaScript Puro):**
+  - Removidas todas as regras e referências legadas a caches do Python (`__pycache__`, `*.pyc`, `.venv`, `.pytest_cache`, `PyInstaller .spec`) do `.gitignore`.
+  - O projeto opera exclusivamente sobre **Node.js (ESM)** e **JavaScript no Navegador**, sem qualquer dependência ou script em Python.
+- **Normalização da Estrutura de Diretórios:**
+  - Corrigido o aninhamento redundante de pastas resultante da extração de arquivos zip (`MarcaRemoveIA-main/MarcaRemoveIA-main`), permitindo a execução imediata de `npm start`, `npm test` e `run.bat` na raiz do projeto.
+- **Correção no Fluxo de Download Remoto (yt-dlp):**
+  - Resolvida a falha onde a conclusão do download tratava o arquivo prematuramente como resultado limpo. O vídeo agora é carregado imediatamente no player com dimensões e título, permitindo marcação manual ou via IA antes da remoção.
+- **Alinhamento e Precisão do Canvas Interativo:**
+  - O canvas de desenho agora sincroniza dinamicamente as coordenadas `top`, `left`, `width` e `height` com `offsetTop` e `offsetLeft` do elemento de vídeo e imagem, prevenindo desalinhamentos ao marcar regiões em telas de diferentes proporções.
+- **Resiliência do Atualizador yt-dlp:**
+  - A rotina `updateYtDlpBinary()` agora trata falhas e exceções de inicialização de processo sem disparar rejeições não tratadas (*unhandled rejections*), retornando status claro e código de saída.
+- **Estabilização de Dependências:**
+  - `sharp` promovido a dependência direta no `package.json`, assegurando sua presença permanente para a geração de máscaras minuciosas e testes automatizados.
+- **Scripts de Inicialização (.bat) Aperfeiçoados:**
+  - `run_web.bat` e `acesso_remoto.bat` atualizados com inclusão automática das pastas do WinGet para Gyan.FFmpeg e yt-dlp.
 
 ---
 
