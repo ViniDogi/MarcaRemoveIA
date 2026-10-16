@@ -79,6 +79,9 @@ test('3. Paridade de Remoção de Marca d\'Água no Vídeo Sintético', async ()
   assert.equal(outMeta.width, 640);
   assert.equal(outMeta.height, 360);
   assert.ok(lastProgress > 0.8, 'Progresso deve ter atingido quase 100%');
+
+  // Limpeza
+  try { fs.unlinkSync(outputVideo); } catch {}
 });
 
 test('4. Resiliência a Dimensões Ímpares (Garante correção do Erro -22)', async () => {

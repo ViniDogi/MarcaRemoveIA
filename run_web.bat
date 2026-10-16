@@ -2,11 +2,11 @@
 setlocal
 cd /d "%~dp0"
 
-set "PATH=%PATH%;C:\Program Files\nodejs;%LOCALAPPDATA%\Programs\Git\cmd;%LOCALAPPDATA%\Microsoft\WinGet\Links;C:\Program Files\yt-dlp"
+set "PATH=%PATH%;C:\Program Files\nodejs;%LOCALAPPDATA%\Programs\Git\cmd;%LOCALAPPDATA%\Microsoft\WinGet\Links;%LOCALAPPDATA%\Microsoft\WinGet\Packages\Gyan.FFmpeg.Essentials_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.1-essentials_build\bin;%LOCALAPPDATA%\Microsoft\WinGet\Packages\yt-dlp.yt-dlp_Microsoft.Winget.Source_8wekyb3d8bbwe;C:\Program Files\yt-dlp"
 
 if not exist "%~dp0node_modules" (
     echo [INFO] Instalando dependencias do Node.js...
-    call npm.cmd install
+    call npm install
 )
 
 echo ============================================================

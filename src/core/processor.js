@@ -15,6 +15,7 @@ import {
   UNIVERSAL_DIMENSION_FILTER,
   ENCODER_LABELS
 } from './encoder-detector.js';
+import { galleryDb } from './gallery-db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -181,27 +182,33 @@ export class WatermarkProcessor {
           const curW = Math.round(startW + (endW - startW) * ratio);
           const curH = Math.round(startH + (endH - startH) * ratio);
 
-          const safeX = Math.max(1, Math.min(curX, meta.width - 3));
-          const safeY = Math.max(1, Math.min(curY, meta.height - 3));
-          const safeW = Math.max(2, Math.min(curW, meta.width - safeX - 1));
-          const safeH = Math.max(2, Math.min(curH, meta.height - safeY - 1));
+          // Expande 2px além da marca para amostrar fundo 100% limpo sem serrilhamento
+          const safeX = Math.max(1, Math.min(curX - 2, meta.width - 5));
+          const safeY = Math.max(1, Math.min(curY - 2, meta.height - 5));
+          const safeW = Math.max(4, Math.min(curW + 4, meta.width - safeX - 1));
+          const safeH = Math.max(4, Math.min(curH + 4, meta.height - safeY - 1));
 
-          filters.push(`delogo=x=${safeX}:y=${safeY}:w=${safeW}:h=${safeH}:enable='between(t\\,${t.toFixed(2)}\\,${nextT.toFixed(2)})'`);
+          filters.push(`delogo=x=${safeX}:y=${safeY}:w=${safeW}:h=${safeH}:show=0:enable='between(t\\,${t.toFixed(2)}\\,${nextT.toFixed(2)})'`);
         }
       } else {
-        // Marca d'água estática
-        let x = Math.round(Number(b.x) || 0);
-        let y = Math.round(Number(b.y) || 0);
-        let w = Math.round(Number(b.w) || 10);
-        let h = Math.round(Number(b.h) || 10);
+        // Marca d'água estática: margem de 2px para amostrar o fundo puro e evitar borrão estriado
+        let rawX = Math.round(Number(b.x) || 0);
+        let rawY = Math.round(Number(b.y) || 0);
+        let rawW = Math.round(Number(b.w) || 10);
+        let rawH = Math.round(Number(b.h) || 10);
 
-        x = Math.max(1, Math.min(x, meta.width - 3));
-        y = Math.max(1, Math.min(y, meta.height - 3));
-        w = Math.max(2, Math.min(w, meta.width - x - 1));
-        h = Math.max(2, Math.min(h, meta.height - y - 1));
+        const x = Math.max(1, Math.min(rawX - 2, meta.width - 5));
+        const y = Math.max(1, Math.min(rawY - 2, meta.height - 5));
+        const w = Math.max(4, Math.min(rawW + 4, meta.width - x - 1));
+        const h = Math.max(4, Math.min(rawH + 4, meta.height - y - 1));
 
-        filters.push(`delogo=x=${x}:y=${y}:w=${w}:h=${h}`);
+        filters.push(`delogo=x=${x}:y=${y}:w=${w}:h=${h}:show=0`);
       }
+    }
+
+    // Estabilidade e Consistência Temporal (elimina piscadas, jitter e artefatos de um frame para o outro)
+    if (watermarkBoxes.length > 0) {
+      filters.push('hqdn3d=luma_spatial=1.5:chroma_spatial=1.5:luma_tmp=3.0:chroma_tmp=3.0');
     }
 
     // Se Upscale Full HD estiver ativado e o vídeo for menor que 1080p
@@ -210,7 +217,7 @@ export class WatermarkProcessor {
       filters.push(`scale=${fhd.width}:${fhd.height}:flags=bilinear,unsharp=3:3:0.5:3:3:0.0`);
     }
 
-    // SEMPRE aplica o filtro universal para evitar -22 por dimensões ímpares
+    // SEMPRE aplica o filtro universal para evitar -22 por dimensões ímpares e garantir yuv420p
     filters.push(UNIVERSAL_DIMENSION_FILTER);
 
     const filterComplex = filters.join(',');
@@ -256,6 +263,7 @@ export class WatermarkProcessor {
           encoder: currentEncoder,
           keepAudio,
           hasAudio: meta.has_audio,
+          useAudioCopy: (i === 0), // Primeira tentativa tenta -c:a copy para preservação 100% sem perda
           totalFrames: meta.nb_frames,
           logStream,
           onProgress,
@@ -289,11 +297,30 @@ export class WatermarkProcessor {
       throw new Error(`${summaryMsg} Detalhes: ${detailMsg}`);
     }
 
+    // Registra automaticamente o vídeo sem marca na galeria integrada
+    let galleryItem = null;
+    try {
+      galleryItem = await galleryDb.addMedia({
+        id: taskId,
+        title: path.basename(inputVideo),
+        mediaType: 'video',
+        filePath: outputVideo,
+        duration: meta.duration,
+        width: meta.width,
+        height: meta.height,
+        size: fs.statSync(outputVideo).size,
+        source: 'inpainting'
+      });
+    } catch (gErr) {
+      console.warn('[Processor] Aviso ao salvar vídeo na galeria:', gErr.message);
+    }
+
     return {
       success: true,
       encoderUsed: successfulEncoder,
       logFile: logPath,
-      outputPath: outputVideo
+      outputPath: outputVideo,
+      galleryItem
     };
   }
 
@@ -307,6 +334,7 @@ export class WatermarkProcessor {
     encoder,
     keepAudio,
     hasAudio,
+    useAudioCopy = false,
     totalFrames,
     logStream,
     onProgress,
@@ -316,9 +344,9 @@ export class WatermarkProcessor {
       const ffmpegExe = getFfmpegBinary();
       const args = ['-y', '-i', inputVideo, '-vf', filterComplex];
 
-      // Configura encoder de vídeo e parâmetros dedicados
+      // Configura encoder de vídeo e parâmetros dedicados de alta qualidade
       args.push('-c:v', encoder);
-      const specificParams = ENCODER_PARAMS[encoder] || ['-preset', 'veryfast', '-crf', '23'];
+      const specificParams = ENCODER_PARAMS[encoder] || ['-preset', 'slow', '-crf', '18'];
       args.push(...specificParams);
 
       // Otimização de threads máxima para CPU
@@ -326,12 +354,18 @@ export class WatermarkProcessor {
         args.push('-threads', '0');
       }
 
-      // Flags de compatibilidade universal
+      // Flags de compatibilidade universal web (H.264, yuv420p, +faststart)
       args.push(...COMMON_OUTPUT_FLAGS);
 
-      // Áudio universal LC-AAC 192k 44.1kHz
+      // Preservação de Áudio Original:
+      // Tenta -c:a copy para manter a faixa de áudio idêntica à original sem perda
+      // Se houver incompatibilidade, fallback automático para LC-AAC 192k 44.1kHz
       if (keepAudio && hasAudio) {
-        args.push('-c:a', 'aac', '-b:a', '192k', '-ar', '44100');
+        if (useAudioCopy) {
+          args.push('-c:a', 'copy');
+        } else {
+          args.push('-c:a', 'aac', '-b:a', '192k', '-ar', '44100');
+        }
       } else {
         args.push('-an');
       }

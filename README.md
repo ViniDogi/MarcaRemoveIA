@@ -7,7 +7,7 @@
 > 🌐 **Acesse a Versão Web Online (sem instalação):** [https://marca-remove-ia.vercel.app/](https://marca-remove-ia.vercel.app/)
 
 [![Node.js Version](https://img.shields.io/badge/Node.js-20%2B%20%7C%2024%20ESM-green.svg)](https://nodejs.org/)
-[![Version](https://img.shields.io/badge/Vers%C3%A3o-3.0.0-blue.svg)](PATCHNOTES.md)
+[![Version](https://img.shields.io/badge/Vers%C3%A3o-3.1.0-blue.svg)](PATCHNOTES.md)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-0078D6.svg)](https://github.com/)
 [![FFmpeg](https://img.shields.io/badge/FFmpeg-Hardware%20Accelerated-orange.svg)](https://ffmpeg.org/)
 [![Google Gemini](https://img.shields.io/badge/Google%20Gemini-Flash%203.8%20%7C%20Pro-4285F4.svg)](https://ai.google.dev/)

@@ -372,28 +372,40 @@ export async function downloadVideo({
 export async function updateYtDlpBinary() {
   const bin = getYtDlpBinary();
 
-  return new Promise((resolve, reject) => {
-    const proc = spawn(bin, ['-U'], { stdio: ['ignore', 'pipe', 'pipe'] });
-    let output = '';
+  return new Promise((resolve) => {
+    try {
+      const proc = spawn(bin, ['-U'], { stdio: ['ignore', 'pipe', 'pipe'] });
+      let output = '';
 
-    proc.stdout.on('data', (d) => {
-      output += d.toString();
-    });
-
-    proc.stderr.on('data', (d) => {
-      output += d.toString();
-    });
-
-    proc.on('error', (err) => {
-      reject(new Error(`Erro ao invocar atualizador do yt-dlp: ${err.message}`));
-    });
-
-    proc.on('close', (code) => {
-      resolve({
-        success: code === 0,
-        code,
-        message: output.trim() || `Processo finalizado com código ${code}`
+      proc.stdout.on('data', (d) => {
+        output += d.toString();
       });
-    });
+
+      proc.stderr.on('data', (d) => {
+        output += d.toString();
+      });
+
+      proc.on('error', (err) => {
+        resolve({
+          success: false,
+          code: -1,
+          message: `Erro ao invocar atualizador do yt-dlp: ${err.message}`
+        });
+      });
+
+      proc.on('close', (code) => {
+        resolve({
+          success: code === 0,
+          code,
+          message: output.trim() || `Processo finalizado com código ${code}`
+        });
+      });
+    } catch (err) {
+      resolve({
+        success: false,
+        code: -1,
+        message: `Falha ao iniciar processo do yt-dlp: ${err.message}`
+      });
+    }
   });
 }
