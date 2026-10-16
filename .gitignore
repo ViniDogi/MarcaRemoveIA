@@ -41,3 +41,4 @@ config.json
 .idea/
 *.swp
 *.swo
+.vercel
