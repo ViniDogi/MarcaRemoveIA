@@ -308,7 +308,7 @@ app.post('/api/preview-frame', async (req, res) => {
   }
 });
 
-// 7. Iniciar Processamento
+// 7. Iniciar Processamento (Vídeo ou Imagem)
 app.post('/api/process', async (req, res) => {
   const {
     video_id,
@@ -327,16 +327,20 @@ app.post('/api/process', async (req, res) => {
   const files = fs.readdirSync(UPLOAD_DIR);
   const matched = files.find((f) => f.startsWith(video_id));
   if (!matched) {
-    return res.status(404).json({ error: 'Vídeo não encontrado.' });
+    return res.status(404).json({ error: 'Arquivo não encontrado.' });
   }
 
   const inputPath = path.join(UPLOAD_DIR, matched);
+  const ext = path.extname(matched).toLowerCase();
+  const isImage = ['.jpg', '.jpeg', '.png', '.webp', '.bmp'].includes(ext);
+
   const taskId = crypto.randomUUID();
-  const outputPath = path.join(OUTPUT_DIR, `clean_${taskId}.mp4`);
+  const outExt = isImage ? ext : '.mp4';
+  const outputPath = path.join(OUTPUT_DIR, `clean_${taskId}${outExt}`);
 
   const taskData = {
     taskId,
-    status: 'Iniciando processamento...',
+    status: 'Iniciando processamento com IA...',
     progress: 0.0,
     fps: 0.0,
     eta: '--:--:--',
@@ -345,13 +349,75 @@ app.post('/api/process', async (req, res) => {
     error: null,
     outputPath,
     encoderInUse: engine,
-    method
+    method,
+    media_type: isImage ? 'image' : 'video',
+    download_url: `/api/download/${taskId}`,
+    result_url: `/api/result/${taskId}`
   };
 
+  // Se for IMAGEM: processamento ultra-rápido com Gemini / WaveSpeed / Reconstrução Pixel a Pixel
+  if (isImage) {
+    tasks.set(taskId, { ...taskData });
+
+    (async () => {
+      try {
+        broadcastProgress(taskId, { status: 'Analisando pixels e regenerando imagem com IA...', progress: 0.3 });
+        const imgBuffer = fs.readFileSync(inputPath);
+        const cfg = loadAiConfig();
+        let cleanBuffer;
+
+        if (method === 'wavespeed' && (cfg.wavespeed_api_key || process.env.WAVESPEED_API_KEY)) {
+          const { WaveSpeedEngine } = await import('./core/wavespeed-engine.js');
+          const ws = new WaveSpeedEngine(cfg.wavespeed_api_key || process.env.WAVESPEED_API_KEY);
+          await ws.processMedia({
+            filePath: inputPath,
+            outputPath,
+            mediaType: 'image',
+            boxes
+          });
+        } else if (method === 'gemini' || (cfg.api_key && method === 'ai_inpaint')) {
+          const { regenerateWithGemini } = await import('./core/pixel-reconstructor.js');
+          cleanBuffer = await regenerateWithGemini({
+            imageBuffer: imgBuffer,
+            boxes,
+            apiKey: cfg.api_key
+          });
+          fs.writeFileSync(outputPath, cleanBuffer);
+        } else {
+          const { reconstructExemplarPatches } = await import('./core/pixel-reconstructor.js');
+          cleanBuffer = await reconstructExemplarPatches({
+            imageBuffer: imgBuffer,
+            boxes
+          });
+          fs.writeFileSync(outputPath, cleanBuffer);
+        }
+
+        broadcastProgress(taskId, {
+          status: 'Imagem regenerada com sucesso!',
+          progress: 1.0,
+          done: true,
+          taskId,
+          media_type: 'image',
+          download_url: `/api/download/${taskId}`,
+          result_url: `/api/result/${taskId}`
+        });
+      } catch (err) {
+        console.error(`Erro ao processar imagem ${taskId}:`, err);
+        broadcastProgress(taskId, {
+          status: 'Erro na regeneração da imagem',
+          error: err.message,
+          done: false
+        });
+      }
+    })();
+
+    return res.json({ task_id: taskId, is_image: true });
+  }
+
+  // Se for VÍDEO: executa através do WatermarkProcessor
   const processor = new WatermarkProcessor();
   tasks.set(taskId, { ...taskData, processor });
 
-  // Executa processamento em background assíncrono
   (async () => {
     try {
       const result = await processor.runRemoval({
@@ -386,7 +452,11 @@ app.post('/api/process', async (req, res) => {
           status: 'Concluído com sucesso!',
           progress: 1.0,
           done: true,
-          encoderInUse: result.encoderUsed
+          taskId,
+          media_type: 'video',
+          download_url: `/api/download/${taskId}`,
+          result_url: `/api/result/${taskId}`,
+          encoderInUse: result.encoderUsed || engine
         });
       }
     } catch (err) {
@@ -399,7 +469,82 @@ app.post('/api/process', async (req, res) => {
     }
   })();
 
-  return res.json({ task_id: taskId });
+  return res.json({ task_id: taskId, is_image: false });
+});
+
+// 7.1 Endpoint direto para processamento de imagem
+app.post('/api/process-image', async (req, res) => {
+  const { video_id, boxes = [], method = 'gemini' } = req.body;
+  if (!video_id) {
+    return res.status(400).json({ error: 'video_id é obrigatório.' });
+  }
+
+  const files = fs.readdirSync(UPLOAD_DIR);
+  const matched = files.find((f) => f.startsWith(video_id));
+  if (!matched) {
+    return res.status(404).json({ error: 'Arquivo não encontrado.' });
+  }
+
+  const inputPath = path.join(UPLOAD_DIR, matched);
+  const ext = path.extname(matched).toLowerCase() || '.jpg';
+  const taskId = crypto.randomUUID();
+  const outputPath = path.join(OUTPUT_DIR, `clean_${taskId}${ext}`);
+
+  try {
+    const imgBuffer = fs.readFileSync(inputPath);
+    const cfg = loadAiConfig();
+    let cleanBuffer;
+
+    if (method === 'gemini') {
+      const { regenerateWithGemini } = await import('./core/pixel-reconstructor.js');
+      cleanBuffer = await regenerateWithGemini({
+        imageBuffer: imgBuffer,
+        boxes,
+        apiKey: cfg.api_key
+      });
+    } else if (method === 'wavespeed' && (cfg.wavespeed_api_key || process.env.WAVESPEED_API_KEY)) {
+      const { WaveSpeedEngine } = await import('./core/wavespeed-engine.js');
+      const ws = new WaveSpeedEngine(cfg.wavespeed_api_key || process.env.WAVESPEED_API_KEY);
+      await ws.processMedia({
+        filePath: inputPath,
+        outputPath,
+        mediaType: 'image',
+        boxes
+      });
+      cleanBuffer = fs.readFileSync(outputPath);
+    } else {
+      const { reconstructExemplarPatches } = await import('./core/pixel-reconstructor.js');
+      cleanBuffer = await reconstructExemplarPatches({
+        imageBuffer: imgBuffer,
+        boxes
+      });
+    }
+
+    if (!fs.existsSync(outputPath) && cleanBuffer) {
+      fs.writeFileSync(outputPath, cleanBuffer);
+    }
+
+    const taskData = {
+      taskId,
+      status: 'Concluído com sucesso!',
+      progress: 1.0,
+      done: true,
+      outputPath,
+      media_type: 'image',
+      download_url: `/api/download/${taskId}`,
+      result_url: `/api/result/${taskId}`
+    };
+    tasks.set(taskId, taskData);
+
+    return res.json({
+      success: true,
+      task_id: taskId,
+      result_url: `/api/result/${taskId}`,
+      download_url: `/api/download/${taskId}`
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // 8. Stream de Progresso em Tempo Real (SSE - Server-Sent Events)
@@ -460,7 +605,34 @@ app.post('/api/cancel/:taskId', (req, res) => {
   return res.json({ success: true, message: 'Cancelamento enviado com sucesso.' });
 });
 
-// 11. Baixar Vídeo Final
+// 11. Visualização e Streaming do Resultado Limpo Final (Preview Direto)
+app.get('/api/result/:taskId', (req, res) => {
+  const { taskId } = req.params;
+  const task = tasks.get(taskId);
+  if (!task || !task.done) {
+    return res.status(404).send('Resultado ainda não disponível.');
+  }
+
+  const filePath = task.outputPath;
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).send('Arquivo final não encontrado.');
+  }
+
+  const ext = path.extname(filePath).toLowerCase();
+  if (['.jpg', '.jpeg'].includes(ext)) {
+    res.setHeader('Content-Type', 'image/jpeg');
+  } else if (ext === '.png') {
+    res.setHeader('Content-Type', 'image/png');
+  } else if (ext === '.webp') {
+    res.setHeader('Content-Type', 'image/webp');
+  } else {
+    res.setHeader('Content-Type', 'video/mp4');
+  }
+
+  return res.sendFile(filePath);
+});
+
+// 11.1 Baixar Vídeo ou Imagem Final
 app.get('/api/download/:taskId', (req, res) => {
   const { taskId } = req.params;
   const task = tasks.get(taskId);
@@ -473,7 +645,11 @@ app.get('/api/download/:taskId', (req, res) => {
     return res.status(404).send('Arquivo final não encontrado no disco.');
   }
 
-  return res.download(filePath, 'video_sem_marca_ia.mp4');
+  const ext = path.extname(filePath).toLowerCase() || '.mp4';
+  const isImg = ['.jpg', '.jpeg', '.png', '.webp', '.bmp'].includes(ext);
+  const defaultName = isImg ? `imagem_sem_marca_ia${ext}` : 'video_sem_marca_ia.mp4';
+
+  return res.download(filePath, defaultName);
 });
 
 // 12. Obter Detalhes do Log do FFmpeg (para modal técnico)
@@ -494,25 +670,31 @@ app.get('/api/logs/:taskId', (req, res) => {
   }
 });
 
-// 13. Configuração da IA
+// 13. Configuração da IA (Gemini, WaveSpeed e Local)
 app.get('/api/config', (req, res) => {
   const cfg = loadAiConfig();
-  // Não envia a chave inteira de volta em texto aberto para segurança
   const maskedKey = cfg.api_key ? `${cfg.api_key.slice(0, 4)}...${cfg.api_key.slice(-4)}` : '';
+  const maskedWsKey = cfg.wavespeed_api_key ? `${cfg.wavespeed_api_key.slice(0, 4)}...${cfg.wavespeed_api_key.slice(-4)}` : '';
   return res.json({
-    provider: cfg.provider,
-    model: cfg.model,
+    provider: cfg.provider || 'gemini',
+    model: cfg.model || 'gemini-3.8-flash',
     has_api_key: Boolean(cfg.api_key),
-    masked_key: maskedKey
+    masked_key: maskedKey,
+    has_wavespeed_key: Boolean(cfg.wavespeed_api_key),
+    masked_wavespeed_key: maskedWsKey
   });
 });
 
 app.post('/api/config', (req, res) => {
-  const { provider, api_key } = req.body;
+  const { provider, api_key, wavespeed_api_key, model } = req.body;
   const cfg = loadAiConfig();
   if (provider) cfg.provider = provider;
+  if (model) cfg.model = model;
   if (typeof api_key === 'string' && api_key.trim()) {
     cfg.api_key = api_key.trim();
+  }
+  if (typeof wavespeed_api_key === 'string' && wavespeed_api_key.trim()) {
+    cfg.wavespeed_api_key = wavespeed_api_key.trim();
   }
   saveAiConfig(cfg);
   return res.json({ success: true });

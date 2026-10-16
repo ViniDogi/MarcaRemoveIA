@@ -120,24 +120,86 @@ export class WatermarkProcessor {
     logStream.write(`=== Início da Tarefa: ${taskId} ===\n`);
     logStream.write(`Arquivo: ${inputVideo}\nResolução: ${meta.width}x${meta.height}\nFPS: ${meta.fps}\nFrames: ${meta.nb_frames}\nMétodo: ${method}\n\n`);
 
-    // 3. Monta cadeia de filtros com base no método escolhido
+    // 2.1 Se o método selecionado for WaveSpeed AI, executa via API da WaveSpeed
+    if (method === 'wavespeed' || engine === 'wavespeed') {
+      try {
+        const { WaveSpeedEngine } = await import('./wavespeed-engine.js');
+        const { loadAiConfig } = await import('./ai-detector.js');
+        const cfg = loadAiConfig();
+        const wsKey = cfg.wavespeed_api_key || process.env.WAVESPEED_API_KEY;
+        if (!wsKey) {
+          throw new Error('Chave de API da WaveSpeed AI não configurada. Configure na engrenagem ⚙️.');
+        }
+
+        const ws = new WaveSpeedEngine(wsKey);
+        const wsRes = await ws.processMedia({
+          filePath: inputVideo,
+          outputPath: outputVideo,
+          mediaType: 'video',
+          boxes: watermarkBoxes,
+          onProgress: (p) => {
+            if (onProgress) {
+              onProgress({
+                progress: (p.percent || 50) / 100,
+                status: p.status || 'Processando com WaveSpeed AI...',
+                encoderInUse: 'WaveSpeed AI'
+              });
+            }
+          }
+        });
+
+        this.isRunning = false;
+        return { success: true, outputPath: wsRes.outputPath, encoderUsed: 'WaveSpeed AI' };
+      } catch (wsErr) {
+        logStream.write(`[WaveSpeed AI] Falha: ${wsErr.message}. Recorrendo ao motor local...\n`);
+      }
+    }
+
+    // 3. Monta cadeia de filtros com base no método escolhido e suporte a marca em movimento
     const filters = [];
 
     for (const b of watermarkBoxes) {
-      let x = Math.round(Number(b.x) || 0);
-      let y = Math.round(Number(b.y) || 0);
-      let w = Math.round(Number(b.w) || 10);
-      let h = Math.round(Number(b.h) || 10);
+      if (b.isMoving && (b.start || b.end || b.trajectory)) {
+        // Marca d'água em movimento: Interpolação suave ao longo da linha do tempo
+        const t0 = Math.max(0, Number(b.start?.t !== undefined ? b.start.t : 0));
+        const t1 = Math.max(t0 + 0.5, Number(b.end?.t !== undefined ? b.end.t : meta.duration || 10));
+        const startX = Number(b.start?.x ?? b.x ?? 0);
+        const startY = Number(b.start?.y ?? b.y ?? 0);
+        const startW = Number(b.start?.w ?? b.w ?? 20);
+        const startH = Number(b.start?.h ?? b.h ?? 20);
+        const endX = Number(b.end?.x ?? startX);
+        const endY = Number(b.end?.y ?? startY);
+        const endW = Number(b.end?.w ?? startW);
+        const endH = Number(b.end?.h ?? startH);
 
-      x = Math.max(1, Math.min(x, meta.width - 3));
-      y = Math.max(1, Math.min(y, meta.height - 3));
-      w = Math.max(2, Math.min(w, meta.width - x - 1));
-      h = Math.max(2, Math.min(h, meta.height - y - 1));
+        const step = 0.5; // fatias temporais a cada 0.5s para transição suave
+        for (let t = t0; t < t1; t += step) {
+          const nextT = Math.min(t1, t + step);
+          const ratio = (t + step / 2 - t0) / Math.max(0.1, t1 - t0);
+          const curX = Math.round(startX + (endX - startX) * ratio);
+          const curY = Math.round(startY + (endY - startY) * ratio);
+          const curW = Math.round(startW + (endW - startW) * ratio);
+          const curH = Math.round(startH + (endH - startH) * ratio);
 
-      if (method === 'blur') {
-        filters.push(`delogo=x=${x}:y=${y}:w=${w}:h=${h}`);
+          const safeX = Math.max(1, Math.min(curX, meta.width - 3));
+          const safeY = Math.max(1, Math.min(curY, meta.height - 3));
+          const safeW = Math.max(2, Math.min(curW, meta.width - safeX - 1));
+          const safeH = Math.max(2, Math.min(curH, meta.height - safeY - 1));
+
+          filters.push(`delogo=x=${safeX}:y=${safeY}:w=${safeW}:h=${safeH}:enable='between(t\\,${t.toFixed(2)}\\,${nextT.toFixed(2)})'`);
+        }
       } else {
-        // Modo IA e Delogo padrão
+        // Marca d'água estática
+        let x = Math.round(Number(b.x) || 0);
+        let y = Math.round(Number(b.y) || 0);
+        let w = Math.round(Number(b.w) || 10);
+        let h = Math.round(Number(b.h) || 10);
+
+        x = Math.max(1, Math.min(x, meta.width - 3));
+        y = Math.max(1, Math.min(y, meta.height - 3));
+        w = Math.max(2, Math.min(w, meta.width - x - 1));
+        h = Math.max(2, Math.min(h, meta.height - y - 1));
+
         filters.push(`delogo=x=${x}:y=${y}:w=${w}:h=${h}`);
       }
     }

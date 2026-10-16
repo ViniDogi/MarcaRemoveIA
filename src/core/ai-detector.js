@@ -10,9 +10,10 @@ const projectRoot = path.resolve(__dirname, '../..');
 const CONFIG_FILE = path.join(projectRoot, 'config.json');
 
 export const DEFAULT_CONFIG = {
-  provider: 'local_cv', // 'local_cv', 'gemini', 'openai'
+  provider: 'gemini', // 'gemini', 'wavespeed', 'local_cv', 'openai'
   api_key: '',
-  model: 'gemini-1.5-flash',
+  wavespeed_api_key: '',
+  model: 'gemini-3.8-flash',
   prompt_detection: 'Detect any watermarks, logos, channel tags, timestamps, or translucent text in this image. Return a JSON array of bounding boxes with pixel coordinates: [{"x": int, "y": int, "w": int, "h": int, "name": string}]. Return ONLY valid JSON.',
   ai_generative_fill: true
 };
@@ -45,6 +46,15 @@ export function saveAiConfig(cfg) {
  */
 export function extractFrameBuffer(videoPath, timestampSec = 0, format = 'mjpeg') {
   return new Promise((resolve, reject) => {
+    const ext = path.extname(videoPath).toLowerCase();
+    if (['.jpg', '.jpeg', '.png', '.webp', '.bmp'].includes(ext)) {
+      try {
+        return resolve(fs.readFileSync(videoPath));
+      } catch (e) {
+        return reject(e);
+      }
+    }
+
     const ffmpegExe = getFfmpegBinary();
     const args = [
       '-ss', timestampSec.toString(),
@@ -73,109 +83,161 @@ export function extractFrameBuffer(videoPath, timestampSec = 0, format = 'mjpeg'
 }
 
 /**
- * Detecta marcas d'água no quadro do vídeo usando API configurada ou algoritmo local de visão computacional.
+ * Detecta marcas d'água no quadro do vídeo ou imagem usando Gemini AI ou visão computacional.
+ * Se nenhuma marca for encontrada, retorna estritamente [] (nunca inventa caixas aleatórias).
  */
 export async function detectWatermarksAi(videoPath, timestampSec = 0) {
   const config = loadAiConfig();
-  const meta = await getVideoMetadata(videoPath);
-  if (!meta) {
-    throw new Error('Não foi possível obter metadados do vídeo para detecção.');
+  const ext = path.extname(videoPath).toLowerCase();
+  const isImage = ['.jpg', '.jpeg', '.png', '.webp', '.bmp'].includes(ext);
+
+  let width = 1280;
+  let height = 720;
+  let frameBuffer = null;
+
+  if (isImage) {
+    const { getSharp } = await import('./onnx-engine.js');
+    const sharp = await getSharp();
+    frameBuffer = fs.readFileSync(videoPath);
+    if (sharp) {
+      const meta = await sharp(frameBuffer).metadata();
+      width = meta.width || 1280;
+      height = meta.height || 720;
+    }
+  } else {
+    const meta = await getVideoMetadata(videoPath);
+    if (!meta) {
+      throw new Error('Não foi possível obter metadados do vídeo para detecção.');
+    }
+    width = meta.width;
+    height = meta.height;
+    frameBuffer = await extractFrameBuffer(videoPath, timestampSec, 'mjpeg');
   }
 
-  const { width, height } = meta;
-  const frameBuffer = await extractFrameBuffer(videoPath, timestampSec, 'mjpeg');
   const base64Img = frameBuffer.toString('base64');
+  const provider = config.provider || 'gemini';
+  const apiKey = (config.api_key || process.env.GEMINI_API_KEY || '').trim();
 
-  const provider = config.provider || 'local_cv';
-  const apiKey = (config.api_key || '').trim();
-
-  // 1. Tenta API de IA se houver chave configurada e não for local_cv
-  if (apiKey && provider === 'gemini') {
+  // 1. Tenta API de IA com Gemini (ou OpenAI se configurado)
+  if (apiKey && (provider === 'gemini' || !config.provider)) {
     try {
       const detected = await detectWithGemini(base64Img, width, height, apiKey, config);
-      if (detected && detected.length > 0) return detected;
+      if (Array.isArray(detected)) {
+        return detected; // Se Gemini retornar [] ou caixas válidas, confia estritamente no modelo
+      }
     } catch (e) {
       console.warn('[AI Detector] Falha na detecção Gemini, tentando detector local:', e.message);
     }
   } else if (apiKey && provider === 'openai') {
     try {
       const detected = await detectWithOpenAi(base64Img, width, height, apiKey, config);
-      if (detected && detected.length > 0) return detected;
+      if (Array.isArray(detected)) return detected;
     } catch (e) {
       console.warn('[AI Detector] Falha na detecção OpenAI, tentando detector local:', e.message);
     }
   }
 
-  // 2. Fallback para Visão Computacional Híbrida Local
-  try {
-    const { detectHybridWatermarks } = await import('./onnx-engine.js');
-    const localBoxes = await detectHybridWatermarks({
-      videoPath,
-      sampleCount: 5,
-      downscaleWidth: 480
-    });
-    if (localBoxes && localBoxes.length > 0) {
-      return localBoxes;
+  // 2. Visão Computacional Híbrida Local (apenas se for vídeo)
+  if (!isImage) {
+    try {
+      const { detectHybridWatermarks } = await import('./onnx-engine.js');
+      const localBoxes = await detectHybridWatermarks({
+        videoPath,
+        sampleCount: 5,
+        downscaleWidth: 480
+      });
+      if (localBoxes && localBoxes.length > 0) {
+        return localBoxes;
+      }
+    } catch (err) {
+      console.warn('[AI Detector] Falha na detecção híbrida local:', err.message);
     }
-  } catch (err) {
-    console.warn('[AI Detector] Falha na detecção híbrida local:', err.message);
   }
 
-  // 3. Fallback estático de segurança
-  return detectLocalHeuristics(width, height);
+  // 3. Se nenhuma marca foi identificada com certeza, retorna vazio
+  // (NÃO seleciona posições arbitrárias no vídeo)
+  return [];
 }
 
 async function detectWithGemini(base64Img, width, height, apiKey, config) {
-  const model = config.model || 'gemini-1.5-flash';
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-  const prompt = `Analyze this video frame image of dimensions ${width}x${height} pixels.\n` +
+  const model = config.model || 'gemini-3.8-flash';
+  const prompt = `Analyze this image of dimensions ${width}x${height} pixels.\n` +
     'Identify all watermarks, logos, TV channel tags, social media handles (TikTok, Instagram, Kwai), timestamps, or subtitles.\n' +
     'Return a JSON array of bounding boxes with pixel coordinates strictly in this format:\n' +
     '[\n' +
     '  {"x": int, "y": int, "w": int, "h": int, "name": "Nome da Marca"}\n' +
     ']\n' +
-    'If no watermark is found, return []. Return ONLY valid JSON, without surrounding markdown commentary.';
+    'CRITICAL: If NO watermark is present, return exactly []. Do NOT select people, faces, objects, walls, or regular background elements. Return ONLY valid JSON.';
 
-  const payload = {
-    contents: [{
-      parts: [
+  // 1. Tenta SDK oficial @google/genai
+  try {
+    const { GoogleGenAI } = await import('@google/genai');
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateContent({
+      model: model,
+      contents: [
         { text: prompt },
         {
-          inline_data: {
-            mime_type: 'image/jpeg',
+          inlineData: {
+            mimeType: 'image/jpeg',
             data: base64Img
           }
         }
-      ]
-    }],
-    generationConfig: {
-      temperature: 0.1,
-      maxOutputTokens: 1000
-    }
-  };
-
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(20000)
+      ],
+      config: {
+        temperature: 0.1
+      }
     });
 
-    if (res.ok) {
-      const data = await res.json();
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const text = response?.text || response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (text) {
       return parseJsonBoxes(text, width, height);
-    } else {
-      const errText = await res.text();
-      console.warn(`[AI Detector] Gemini retornou HTTP ${res.status}:`, errText);
     }
-  } catch (err) {
-    console.warn('[AI Detector] Erro de rede com Gemini:', err.message);
+  } catch (sdkErr) {
+    console.warn(`[AI Detector] Falha com SDK @google/genai (${model}):`, sdkErr.message);
   }
 
-  return null;
+  // 2. Fallback REST para v1beta com gemini-3.8-flash e fallback para gemini-2.5-flash
+  const modelsToTry = [model, 'gemini-2.5-flash'];
+  for (const m of modelsToTry) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
+    const payload = {
+      contents: [{
+        parts: [
+          { text: prompt },
+          {
+            inline_data: {
+              mime_type: 'image/jpeg',
+              data: base64Img
+            }
+          }
+        ]
+      }],
+      generationConfig: {
+        temperature: 0.1,
+        maxOutputTokens: 1000
+      }
+    };
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(15000)
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        return parseJsonBoxes(text, width, height);
+      }
+    } catch {
+      // tenta próximo modelo
+    }
+  }
+
+  return [];
 }
 
 async function detectWithOpenAi(base64Img, width, height, apiKey, config) {

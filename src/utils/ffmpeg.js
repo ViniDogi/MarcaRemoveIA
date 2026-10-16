@@ -182,11 +182,28 @@ export async function validateVideoFile(videoPath) {
     return { valid: false, error: 'O arquivo enviado está vazio (0 bytes).' };
   }
 
+  const ext = path.extname(videoPath).toLowerCase();
+  const imageExts = ['.jpg', '.jpeg', '.png', '.webp', '.bmp'];
+  if (imageExts.includes(ext) && stat.size > 0) {
+    return {
+      valid: true,
+      metadata: {
+        width: 1920,
+        height: 1080,
+        fps: 0,
+        duration: 0,
+        nb_frames: 1,
+        video_codec: ext.replace('.', ''),
+        has_audio: false,
+        is_image: true
+      }
+    };
+  }
+
   const meta = await getVideoMetadata(videoPath);
   if (!meta) {
     // Fallback para ambientes sem ffprobe instalado (ex: Vercel Serverless)
     // Permite que o upload seja concluído e os metadados reais sejam lidos no cliente via HTML5 Video
-    const ext = path.extname(videoPath).toLowerCase();
     const validExts = ['.mp4', '.webm', '.mov', '.mkv', '.avi', '.ts', '.flv'];
     if (validExts.includes(ext) && stat.size > 0) {
       return {
@@ -206,7 +223,7 @@ export async function validateVideoFile(videoPath) {
 
     return {
       valid: false,
-      error: 'Formato de vídeo inválido ou arquivo corrompido. Certifique-se de enviar um arquivo com fluxo de vídeo válido.'
+      error: 'Formato de vídeo inválido ou arquivo corrompido. Certifique-se de enviar um arquivo de vídeo ou imagem válido.'
     };
   }
 

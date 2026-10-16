@@ -392,23 +392,10 @@ export async function detectHybridWatermarks({
     }
   }
 
-  // 5. Se o algoritmo não encontrou blocos locais (ex: vídeo inteiramente estático ou sintético),
-  // faz análise de bordas nos cantos mais prováveis
+  // 5. Se nenhum bloco com alta evidência de marca d'água for encontrado,
+  // NÃO inventa caixas aleatórias. Retorna vazio para que o usuário desenhe com precisão.
   if (candidateBoxes.length === 0) {
-    const cornerChecks = [
-      { name: 'Canto Sup. Dir.', x: Math.round(origW * 0.70), y: Math.round(origH * 0.04), w: Math.round(origW * 0.26), h: Math.round(origH * 0.12) },
-      { name: 'Canto Inf. Dir.', x: Math.round(origW * 0.70), y: Math.round(origH * 0.84), w: Math.round(origW * 0.26), h: Math.round(origH * 0.12) },
-      { name: 'Canto Sup. Esq.', x: Math.round(origW * 0.04), y: Math.round(origH * 0.04), w: Math.round(origW * 0.26), h: Math.round(origH * 0.12) },
-      { name: 'Canto Inf. Esq.', x: Math.round(origW * 0.04), y: Math.round(origH * 0.84), w: Math.round(origW * 0.26), h: Math.round(origH * 0.12) }
-    ];
-
-    candidateBoxes.push({
-      id: 1,
-      ...cornerChecks[0],
-      name: `Marca Sugerida (${cornerChecks[0].name})`,
-      confidence: 0.82,
-      isStatic: true
-    });
+    return [];
   }
 
   // Aplica NMS para consolidar caixas
@@ -435,9 +422,9 @@ export function smoothBoxesTrajectory(boxHistory, currentBox, alpha = 0.7) {
 }
 
 /**
- * Inpainting de Imagem por IA / Interpolação Textural Neural:
+ * Inpainting de Imagem por IA / Reconstrução Pixel a Pixel:
  * Remove as regiões das marcas d'água reconstruindo os pixels de fundo
- * de forma harmoniosa com base no contexto circundante.
+ * de forma nítida, preservando texturas e sem deixar borrão esbranquiçado.
  */
 export async function inpaintImageBuffer({
   imageBuffer,
@@ -450,57 +437,16 @@ export async function inpaintImageBuffer({
     return imageBuffer;
   }
 
-  let img = sharp(imageBuffer);
-  const meta = await img.metadata();
-  const imgW = width || meta.width;
-  const imgH = height || meta.height;
-
-  // Processa cada região
-  const compositeOverlays = [];
-
-  for (const box of boxes) {
-    let bx = Math.max(0, Math.min(Math.round(box.x), imgW - 5));
-    let by = Math.max(0, Math.min(Math.round(box.y), imgH - 5));
-    let bw = Math.max(4, Math.min(Math.round(box.w), imgW - bx));
-    let bh = Math.max(4, Math.min(Math.round(box.h), imgH - by));
-
-    // Margem externa de amostragem de contexto (padding de 8px)
-    const pad = Math.min(16, Math.max(4, Math.round(Math.min(bw, bh) * 0.15)));
-    const sampleX = Math.max(0, bx - pad);
-    const sampleY = Math.max(0, by - pad);
-    const sampleW = Math.min(imgW - sampleX, bw + pad * 2);
-    const sampleH = Math.min(imgH - sampleY, bh + pad * 2);
-
-    try {
-      // Extrai região com bordas
-      const region = await sharp(imageBuffer)
-        .extract({ left: sampleX, top: sampleY, width: sampleW, height: sampleH })
-        .toBuffer();
-
-      // Aplica difusão gaussiana profunda combinada com reconstrução de borda
-      const blurRadius = Math.max(12, Math.min(48, Math.round(Math.max(bw, bh) * 0.35)));
-      const healedPatch = await sharp(region)
-        .blur(blurRadius)
-        .resize(bw, bh, { fit: 'fill' })
-        .toBuffer();
-
-      compositeOverlays.push({
-        input: healedPatch,
-        left: bx,
-        top: by,
-        blend: 'over'
-      });
-    } catch (e) {
-      console.warn('[Inpainting] Aviso ao processar patch:', e.message);
-    }
-  }
-
-  if (compositeOverlays.length > 0) {
-    return await sharp(imageBuffer)
-      .composite(compositeOverlays)
-      .jpeg({ quality: 95 })
-      .toBuffer();
+  try {
+    const { reconstructExemplarPatches } = await import('./pixel-reconstructor.js');
+    return await reconstructExemplarPatches({
+      imageBuffer,
+      boxes
+    });
+  } catch (err) {
+    console.warn('[Inpainting] Erro na reconstrução de pixels, aplicando fallback:', err.message);
   }
 
   return imageBuffer;
 }
+

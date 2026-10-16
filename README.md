@@ -1,27 +1,31 @@
 # 🚀 MarcaRemoveIA
 
-> **Plataforma Web Profissional para Remoção Inteligente de Marcas d'Água em Vídeos com IA, Aceleração por Hardware Universal (GPU/CPU) e Download por Link.**
+> **Plataforma Web Profissional para Remoção Inteligente de Marcas d'Água com IA, Regeneração de Pixels (Gemini & WaveSpeed AI), Remoção em Movimento e Aceleração Universal por Hardware.**
 
 [![Acesse a Versão Web](https://img.shields.io/badge/Acessar%20Vers%C3%A3o%20Web-https%3A%2F%2Fmarca--remove--ia.vercel.app%2F-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://marca-remove-ia.vercel.app/)
 
 > 🌐 **Acesse a Versão Web Online (sem instalação):** [https://marca-remove-ia.vercel.app/](https://marca-remove-ia.vercel.app/)
 
 [![Node.js Version](https://img.shields.io/badge/Node.js-20%2B%20%7C%2024%20ESM-green.svg)](https://nodejs.org/)
+[![Version](https://img.shields.io/badge/Vers%C3%A3o-3.0.0-blue.svg)](PATCHNOTES.md)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-0078D6.svg)](https://github.com/)
 [![FFmpeg](https://img.shields.io/badge/FFmpeg-Hardware%20Accelerated-orange.svg)](https://ffmpeg.org/)
-[![yt--dlp](https://img.shields.io/badge/yt--dlp-Integrated-red.svg)](https://github.com/yt-dlp/yt-dlp)
-[![ONNX Runtime](https://img.shields.io/badge/ONNX%20Runtime-CUDA%20%7C%20DirectML%20%7C%20CPU-blue.svg)](https://onnxruntime.ai/)
+[![Google Gemini](https://img.shields.io/badge/Google%20Gemini-Flash%203.8%20%7C%20Pro-4285F4.svg)](https://ai.google.dev/)
+[![WaveSpeed AI](https://img.shields.io/badge/WaveSpeed%20AI-Image%20%26%20Video-0284c7.svg)](https://wavespeed.ai/)
+[![Tests](https://img.shields.io/badge/Testes-28%2F28%20Aprovados-success.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
 ## 🎯 Sobre o Projeto
 
-O **MarcaRemoveIA** está disponível em duas modalidades:
-- 🌐 **Versão Web Online:** [https://marca-remove-ia.vercel.app/](https://marca-remove-ia.vercel.app/) (Acesse direto pelo navegador sem precisar instalar nada).
-- 🖥️ **Servidor Local Acelerado:** `http://127.0.0.1:8000` (Com suporte a aceleração nativa por GPU NVIDIA/Intel/AMD e FFmpeg integrado).
-
-Desenvolvido integralmente em **JavaScript (Node.js ESM)** para identificar e remover marcas d'água, logotipos, carimbos e legendas em vídeos com alta precisão e performance otimizada.
+O **MarcaRemoveIA 3.0** foi reformulado para entregar uma experiência de altíssimo nível visual e técnico:
+- 🎨 **Novo Design Clean & Glassmorphism:** Cores em branco e azul claro suave, UI com cantos ultra-arredondados, efeitos de blur fosco e animações sutis.
+- ⚡ **Fluxo Simplificado em 3 Passos:** Redução e eliminação de opções desnecessárias.
+- 🎯 **Reconstrução Pixel a Pixel Sem Borrão:** Máscara minuciosa que isola estritamente os traços da marca e regenera a textura de fundo sem desfoque esbranquiçado.
+- 🌟 **Google Gemini IA & WaveSpeed AI:** Regeneração generativa neural de imagens e vídeos.
+- 🔄 **Marcas d'Água em Movimento:** Rastreamento dinâmico e interpolação temporal de trajetórias.
+- 📦 **Entrega Final Perfeita:** Player com reprodução direta do resultado limpo, modo comparativo "Antes/Depois" e download instantâneo.
 
 O sistema opera sem dependências legadas em Python no runtime, chamando binários como **FFmpeg** e **yt-dlp** diretamente via `child_process.spawn` (com argumentos em array isolados, eliminando riscos de injeção de shell).
 

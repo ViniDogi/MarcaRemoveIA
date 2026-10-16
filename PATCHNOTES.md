@@ -1,13 +1,45 @@
 # 📋 Notas de Atualização (Patchnotes) — MarcaRemoveIA
 
-> **Versão Mais Recente:** 2.2.0  
-> **Status:** 24/24 Testes Automatizados Aprovados (100% de cobertura funcional)  
+> **Versão Mais Recente:** 3.0.0  
+> **Status:** 28/28 Testes Automatizados Aprovados (100% de cobertura funcional)  
 > **Versão Web Oficial:** [https://marca-remove-ia.vercel.app/](https://marca-remove-ia.vercel.app/)  
 > **Compatibilidade:** Desktop Local (Windows/Linux/macOS com FFmpeg/GPU) e Web Nuvem (Vercel / Navegadores modernos)
 
 ---
 
-## 🚀 Versão 2.2.0 — Auditoria Completa, Inpainting com IA e Otimização de Performance
+## 🌟 Versão 3.0.0 — Novo Design Clean (Branco e Azul Claro), Reconstrução Pixel a Pixel com Gemini & WaveSpeed AI e Marcas Móveis
+
+- **Novo Design Clean & Glassmorphism (Branco e Azul Claro):**
+  - Paleta refinada em tons suaves de branco e azul céu (`#f0f7ff`, `#e0f2fe`, `#38bdf8`, `#0284c7`).
+  - Interface com cantos ultra-arredondados (`rounded-3xl`), sombras suaves e efeito de vidro fosco (`backdrop-blur-xl`).
+  - Animações fluidas de seleção, hover flutuante e micro-interações responsivas.
+- **Simplificação e Redução Drástica de Opções (UX 3 Passos):**
+  - Interface despoluída e organizada em um fluxo intuitivo de 3 passos:
+    1. *Enviar Mídia (Vídeo ou Imagem)*
+    2. *Marcar a Marca d'Água (IA, Manual ou Móvel)*
+    3. *Motor Inteligente (Gemini, WaveSpeed ou Inpainting Local)*
+  - Opções técnicas de encoders secundários ocultas em sanfona colapsável opcional.
+- **Reconstrução Pixel a Pixel Sem Borrão (Problema Crítico Resolvido):**
+  - Substituído o desfoque gaussiano / delogo simples por segmentação minuciosa pixel a pixel e síntese textural exemplar HD.
+  - O fundo é regenerado com textura, grão e nitidez natural sem deixar manchas esbranquiçadas ou borradas.
+- **Integração com Google Gemini IA (Gemini 3.8 Flash):**
+  - Suporte completo a imagens e frames de vídeo via `@google/genai` e API v1beta.
+  - Detecção inteligente sem caixas fantasmas ou seleções aleatórias.
+  - Reconstrução e regeneração de pixels orientada por IA generativa.
+- **Integração com WaveSpeed AI:**
+  - Suporte nativo aos modelos `wavespeed-ai/image-watermark-remover` e `wavespeed-ai/video-watermark-remover`.
+  - Script CLI dedicado criado em `scripts/wavespeed_remove.js` para processamento rápido por terminal.
+- **Remoção de Marcas d'Água em Movimento:**
+  - Sistema de interpolação temporal de keyframes (`isMoving`, `start`, `end`, `trajectory`).
+  - Acompanhamento de marcas flutuantes, logotipos quicando ou letreiros móveis no vídeo.
+- **Entrega Final Aperfeiçoada e Fluida:**
+  - Card de entrega concluída com reprodução instantânea no navegador via `/api/result/:taskId`.
+  - Modo de comparação rápida "Antes" e "Depois (Limpo ✨)" para conferir o resultado lado a lado.
+  - Botão de download direto ajustado com nome e tipo MIME exatos.
+- **Cobertura de Testes:**
+  - 28 testes automatizados executados e 100% aprovados (`tests/new-features.test.js`).
+
+---
 
 - **Acesso à Versão Web na Nuvem:**
   - Adicionado link de acesso direto à versão web no Vercel: [https://marca-remove-ia.vercel.app/](https://marca-remove-ia.vercel.app/)

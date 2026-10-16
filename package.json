@@ -11,13 +11,14 @@
     "test": "node --test tests/**/*.test.js"
   },
   "dependencies": {
+    "@google/genai": "^2.30.0",
     "cors": "^2.8.6",
     "express": "^5.3.0",
     "multer": "^2.4.0"
   },
   "optionalDependencies": {
+    "@img/sharp-linux-x64": "^0.35.5",
     "onnxruntime-node": "^1.30.0",
-    "sharp": "^0.35.5",
-    "@img/sharp-linux-x64": "^0.35.5"
+    "sharp": "^0.35.5"
   }
 }
